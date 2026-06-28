@@ -1,0 +1,464 @@
+/*
+  ==============================================================================
+
+    This file contains the basic framework code for a JUCE plugin processor.
+
+  ==============================================================================
+*/
+
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+namespace
+{
+    const juce::String recParameterID   { "rec" };
+    const juce::String playParameterID  { "play" };
+    const juce::String stopParameterID  { "stop" };
+    const juce::String undoParameterID  { "undo" };
+    const juce::String redoParameterID  { "redo" };
+    const juce::String resetParameterID { "reset" };
+    const juce::String rewindParameterID { "rewind" };
+    const juce::String recSustainParameterID { "rec_sustain" };
+    const juce::String triggerModeParameterID { "trigger_mode" };
+    const juce::String thresholdParameterID   { "threshold_db" };
+}
+
+//==============================================================================
+DinLooperAudioProcessor::DinLooperAudioProcessor()
+#ifndef JucePlugin_PreferredChannelConfigurations
+     : AudioProcessor (BusesProperties()
+                     #if ! JucePlugin_IsMidiEffect
+                      #if ! JucePlugin_IsSynth
+                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                      #endif
+                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                     #endif
+                       )
+#else
+     : AudioProcessor()
+#endif
+     , parameters(*this, nullptr, "DinLooperParameters", createParameterLayout())
+{
+    parameters.addParameterListener(recParameterID, this);
+    parameters.addParameterListener(playParameterID, this);
+    parameters.addParameterListener(stopParameterID, this);
+    parameters.addParameterListener(undoParameterID, this);
+    parameters.addParameterListener(redoParameterID, this);
+    parameters.addParameterListener(resetParameterID, this);
+    parameters.addParameterListener(rewindParameterID, this);
+    parameters.addParameterListener(recSustainParameterID, this);
+
+    triggerModeParameter = parameters.getRawParameterValue(triggerModeParameterID);
+    thresholdParameter = parameters.getRawParameterValue(thresholdParameterID);
+
+    jassert(triggerModeParameter != nullptr);
+    jassert(thresholdParameter != nullptr);
+}
+
+DinLooperAudioProcessor::~DinLooperAudioProcessor()
+{
+    parameters.removeParameterListener(recParameterID, this);
+    parameters.removeParameterListener(playParameterID, this);
+    parameters.removeParameterListener(stopParameterID, this);
+    parameters.removeParameterListener(undoParameterID, this);
+    parameters.removeParameterListener(redoParameterID, this);
+    parameters.removeParameterListener(resetParameterID, this);
+    parameters.removeParameterListener(rewindParameterID, this);
+    parameters.removeParameterListener(recSustainParameterID, this);
+}
+
+//==============================================================================
+const juce::String DinLooperAudioProcessor::getName() const
+{
+    return JucePlugin_Name;
+}
+
+bool DinLooperAudioProcessor::acceptsMidi() const
+{
+   #if JucePlugin_WantsMidiInput
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+bool DinLooperAudioProcessor::producesMidi() const
+{
+   #if JucePlugin_ProducesMidiOutput
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+bool DinLooperAudioProcessor::isMidiEffect() const
+{
+   #if JucePlugin_IsMidiEffect
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+double DinLooperAudioProcessor::getTailLengthSeconds() const
+{
+    return 0.0;
+}
+
+int DinLooperAudioProcessor::getNumPrograms()
+{
+    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
+                // so this should be at least 1, even if you're not really implementing programs.
+}
+
+int DinLooperAudioProcessor::getCurrentProgram()
+{
+    return 0;
+}
+
+void DinLooperAudioProcessor::setCurrentProgram (int index)
+{
+}
+
+const juce::String DinLooperAudioProcessor::getProgramName (int index)
+{
+    return {};
+}
+
+void DinLooperAudioProcessor::changeProgramName (int index, const juce::String& newName)
+{
+}
+
+//==============================================================================
+void DinLooperAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    juce::ignoreUnused(samplesPerBlock);
+    looper.prepareToPlay(sampleRate, getTotalNumInputChannels());
+}
+
+void DinLooperAudioProcessor::releaseResources()
+{
+    // When playback stops, you can use this as an opportunity to free up any
+    // spare memory, etc.
+}
+
+#ifndef JucePlugin_PreferredChannelConfigurations
+bool DinLooperAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+  #if JucePlugin_IsMidiEffect
+    juce::ignoreUnused (layouts);
+    return true;
+  #else
+    // This is the place where you check if the layout is supported.
+    // In this template code we only support mono or stereo.
+    // Some plugin hosts, such as certain GarageBand versions, will only
+    // load plugins that support stereo bus layouts.
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    // This checks if the input layout matches the output layout
+   #if ! JucePlugin_IsSynth
+    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+        return false;
+   #endif
+
+    return true;
+  #endif
+}
+#endif
+
+void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    processPendingCommands();
+    const auto triggerSample = findInputTriggerSample(buffer, midiMessages);
+    const auto sustainStopSample = findSustainPedalSample(midiMessages);
+
+    if (triggerSample >= 0)
+        looper.triggerRecording();
+
+    looper.processBlock(buffer,
+                        juce::jmax(0, triggerSample),
+                        sustainStopSample);
+    midiMessages.clear();
+}
+
+//==============================================================================
+bool DinLooperAudioProcessor::hasEditor() const
+{
+    return true; // (change this to false if you choose to not supply an editor)
+}
+
+juce::AudioProcessorEditor* DinLooperAudioProcessor::createEditor()
+{
+    return new DinLooperAudioProcessorEditor (*this);
+}
+
+//==============================================================================
+void DinLooperAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    // You should use this method to store your parameters in the memory block.
+    // You could do that either as raw data, or use the XML or ValueTree classes
+    // as intermediaries to make it easy to save and load complex data.
+}
+
+void DinLooperAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    // You should use this method to restore your parameters from this memory block,
+    // whose contents will have been created by the getStateInformation() call.
+}
+
+//==============================================================================
+void DinLooperAudioProcessor::pressRec()
+{
+    triggerParameter(recParameterID);
+}
+
+void DinLooperAudioProcessor::pressPlay()
+{
+    triggerParameter(playParameterID);
+}
+
+void DinLooperAudioProcessor::pressStop()
+{
+    triggerParameter(stopParameterID);
+}
+
+void DinLooperAudioProcessor::pressUndo()
+{
+    triggerParameter(undoParameterID);
+}
+
+void DinLooperAudioProcessor::pressRedo()
+{
+    triggerParameter(redoParameterID);
+}
+
+void DinLooperAudioProcessor::pressReset()
+{
+    triggerParameter(resetParameterID);
+}
+
+void DinLooperAudioProcessor::pressRewind()
+{
+    triggerParameter(rewindParameterID);
+}
+
+void DinLooperAudioProcessor::pressRecSustain()
+{
+    triggerParameter(recSustainParameterID);
+}
+
+juce::String DinLooperAudioProcessor::getStateName() const
+{
+    return looper.getStateName();
+}
+
+LooperEngine::State DinLooperAudioProcessor::getState() const
+{
+    return looper.getState();
+}
+
+int DinLooperAudioProcessor::getLayerCount() const
+{
+    return looper.getLayerCount();
+}
+
+float DinLooperAudioProcessor::getProgress() const
+{
+    return looper.getProgress();
+}
+
+float DinLooperAudioProcessor::getLoopLength() const
+{
+    return looper.getLoopLength();
+}
+
+float DinLooperAudioProcessor::getCurrentTime() const
+{
+    return looper.getCurrentTime();
+}
+
+juce::AudioProcessorValueTreeState& DinLooperAudioProcessor::getParameters()
+{
+    return parameters;
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::createParameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { recParameterID, 1 }, "REC", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { playParameterID, 1 }, "PLAY", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { stopParameterID, 1 }, "STOP", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { undoParameterID, 1 }, "UNDO", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { redoParameterID, 1 }, "REDO", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { resetParameterID, 1 }, "RESET", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { rewindParameterID, 1 }, "REWIND", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { recSustainParameterID, 1 },
+        "REC Pedal",
+        false));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { triggerModeParameterID, 1 },
+        "Trigger Mode",
+        juce::StringArray {
+            "Instant",
+            "Audio + MIDI",
+            "Audio Only",
+            "MIDI Only"
+        },
+        1));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { thresholdParameterID, 1 },
+        "Audio Threshold",
+        juce::NormalisableRange<float> { -60.0f, 0.0f, 0.1f },
+        -36.0f,
+        juce::AudioParameterFloatAttributes().withLabel("dB")));
+
+    return layout;
+}
+
+void DinLooperAudioProcessor::parameterChanged(const juce::String& parameterID,
+                                               float newValue)
+{
+    if (newValue < 0.5f)
+        return;
+
+    unsigned int command = 0;
+
+    if (parameterID == recParameterID)          command = recCommand;
+    else if (parameterID == playParameterID)    command = playCommand;
+    else if (parameterID == stopParameterID)    command = stopCommand;
+    else if (parameterID == undoParameterID)    command = undoCommand;
+    else if (parameterID == redoParameterID)    command = redoCommand;
+    else if (parameterID == resetParameterID)   command = resetCommand;
+    else if (parameterID == rewindParameterID)  command = rewindCommand;
+    else if (parameterID == recSustainParameterID)
+        command = recSustainCommand;
+
+    pendingCommands.fetch_or(command, std::memory_order_release);
+}
+
+void DinLooperAudioProcessor::triggerParameter(const juce::String& parameterID)
+{
+    if (auto* parameter = parameters.getParameter(parameterID))
+    {
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost(1.0f);
+        parameter->setValueNotifyingHost(0.0f);
+        parameter->endChangeGesture();
+    }
+}
+
+void DinLooperAudioProcessor::processPendingCommands()
+{
+    const auto commands = pendingCommands.exchange(0, std::memory_order_acquire);
+
+    if ((commands & resetCommand) != 0) looper.pressReset();
+    if ((commands & stopCommand) != 0)  looper.pressStop();
+    if ((commands & undoCommand) != 0)  looper.pressUndo();
+    if ((commands & redoCommand) != 0)  looper.pressRedo();
+    if ((commands & rewindCommand) != 0) looper.pressRewind();
+    if ((commands & playCommand) != 0)  looper.pressPlay();
+    if ((commands & recSustainCommand) != 0)
+    {
+        const auto wasIdle = looper.getState() == LooperEngine::State::Idle;
+        looper.pressRecSustain();
+
+        if (wasIdle && triggerModeParameter->load(std::memory_order_relaxed) < 0.5f)
+            looper.triggerRecording();
+    }
+    if ((commands & recCommand) != 0)
+    {
+        const auto wasIdle = looper.getState() == LooperEngine::State::Idle;
+        looper.pressRec();
+
+        if (wasIdle && triggerModeParameter->load(std::memory_order_relaxed) < 0.5f)
+            looper.triggerRecording();
+    }
+}
+
+int DinLooperAudioProcessor::findInputTriggerSample(
+    const juce::AudioBuffer<float>& buffer,
+    const juce::MidiBuffer& midiMessages) const
+{
+    if (looper.getState() != LooperEngine::State::WaitingForInput
+        || triggerModeParameter->load(std::memory_order_relaxed) < 0.5f)
+    {
+        return -1;
+    }
+
+    auto firstTriggerSample = buffer.getNumSamples();
+    const auto triggerMode = juce::roundToInt(
+        triggerModeParameter->load(std::memory_order_relaxed));
+    const auto usesAudio = triggerMode == 1 || triggerMode == 2;
+    const auto usesMidi = triggerMode == 1 || triggerMode == 3;
+    const auto threshold = juce::Decibels::decibelsToGain(
+        thresholdParameter->load(std::memory_order_relaxed));
+
+    if (usesAudio)
+    {
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            const auto* samples = buffer.getReadPointer(channel);
+
+            for (int sample = 0; sample < firstTriggerSample; ++sample)
+            {
+                if (std::abs(samples[sample]) >= threshold)
+                {
+                    firstTriggerSample = sample;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (usesMidi)
+    {
+        for (const auto metadata : midiMessages)
+        {
+            if (metadata.getMessage().isNoteOn())
+                firstTriggerSample = juce::jmin(firstTriggerSample,
+                                                metadata.samplePosition);
+        }
+    }
+
+    return firstTriggerSample < buffer.getNumSamples() ? firstTriggerSample : -1;
+}
+
+int DinLooperAudioProcessor::findSustainPedalSample(
+    const juce::MidiBuffer& midiMessages) const
+{
+    if (!looper.isWaitingForSustain())
+        return -1;
+
+    for (const auto metadata : midiMessages)
+    {
+        const auto& message = metadata.getMessage();
+
+        if (message.isController()
+            && message.getControllerNumber() == 64
+            && message.getControllerValue() >= 64)
+        {
+            return metadata.samplePosition;
+        }
+    }
+
+    return -1;
+}
+
+//==============================================================================
+// This creates new instances of the plugin..
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new DinLooperAudioProcessor();
+}

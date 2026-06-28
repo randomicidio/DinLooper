@@ -1,0 +1,25 @@
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.opendb
+
+# Build folders
+/Builds/
+/JuceLibraryCode/
+/Source/TEST.txt
+
+# JUCE build output
+*.obj
+*.ilk
+*.pdb
+*.lib
+*.exp
+*.dll
+*.exe
+*.log
+
+# Generated plugin
+*.vst3
+
+# macOS
+.DS_Store

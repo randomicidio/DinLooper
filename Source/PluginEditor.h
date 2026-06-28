@@ -1,0 +1,53 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+
+class DinLooperAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                      private juce::Timer
+{
+public:
+    DinLooperAudioProcessorEditor(DinLooperAudioProcessor&);
+    ~DinLooperAudioProcessorEditor() override;
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
+private:
+    void timerCallback() override;
+    void updateLooperStatus();
+
+    DinLooperAudioProcessor& audioProcessor;
+
+    // ===== Botões =====
+    juce::TextButton recButton{ "REC" };
+    juce::TextButton playButton{ "PLAY" };
+    juce::TextButton stopButton{ "STOP" };
+    juce::TextButton undoButton{ "UNDO" };
+    juce::TextButton redoButton{ "REDO" };
+    juce::TextButton resetButton{ "RESET" };
+    juce::TextButton rewindButton{ "REWIND" };
+    juce::TextButton recSustainButton{ "REC PEDAL" };
+
+    // ===== Labels =====
+    juce::Label titleLabel;
+    juce::Label statusLabel;
+    juce::Label progressLabel;
+    juce::Label timeLabel;
+    juce::Label layersLabel;
+    juce::Label triggerModeLabel;
+    juce::Label thresholdLabel;
+
+    double loopProgress = 0.0;
+    juce::ProgressBar loopProgressBar{ loopProgress };
+
+    juce::ComboBox triggerModeBox;
+    juce::Slider thresholdSlider;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+        triggerModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        thresholdAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DinLooperAudioProcessorEditor)
+};
