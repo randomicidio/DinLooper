@@ -1,132 +1,142 @@
 # DinLooper
 
-DinLooper é uma loop station VST3 criada para tocar ao vivo.
+DinLooper is a VST3 live looping plugin built for fast, simple operation during
+a performance.
 
-A ideia é simples: gravar loops e overdubs rapidamente, sem interromper a
-performance e sem precisar navegar por telas complicadas. O plugin foi pensado
-principalmente para uso no REAPER e pode ser controlado com mouse, MIDI, OSC,
-pedal ou Stream Deck.
+It lets you record loops and layered overdubs without navigating complicated
+screens. DinLooper is designed primarily for REAPER and can be controlled with
+a mouse, MIDI, OSC, a sustain pedal, or a Stream Deck.
 
-## O que ele faz
+## Features
 
-- Grava loops estéreo de até 3 minutos.
-- Adiciona overdubs como layers independentes.
-- Permite até 16 layers tocando ao mesmo tempo.
-- Oferece volume, medidor, Mute, Solo e Delete para cada layer.
-- Recupera layers apagadas usando Undo e Redo.
-- Inicia a gravação imediatamente ou espera um sinal de áudio ou MIDI.
-- Permite ajustar visualmente o threshold do trigger de áudio.
-- Mostra a posição e a duração do loop.
-- Possui medidores estéreo de entrada e saída.
-- Possui volume master e Audio Thru opcional.
-- Pode ser controlado pelo sistema Learn do REAPER.
-- Possui interface redimensionável.
+- Stereo loops up to 3 minutes long.
+- Up to 16 active layers.
+- Independent volume, meter, Mute, Solo, and Delete controls for every layer.
+- Undo and Redo for recorded and deleted layers.
+- Instant, audio, MIDI, or Audio + MIDI recording triggers.
+- Adjustable audio threshold directly on the input meter.
+- Waveform display with playback position and loop duration.
+- Non-destructive waveform cropping using draggable start and end handles.
+- Stereo input and output meters.
+- Master volume and optional Audio Thru.
+- Configurable REC timing compensation.
+- Resizable interface.
+- VST3 parameters for REAPER Learn, OSC, MIDI, automation, and Stream Deck
+  workflows.
 
-## Começando rapidamente
+## Quick start
 
-1. Insira o DinLooper em uma track do REAPER.
-2. Escolha o modo de trigger.
-3. Pressione **REC**.
-4. Toque ou cante.
-5. Pressione **FINISH** para concluir.
-6. O loop começa a tocar automaticamente.
-7. Pressione **REC** novamente para gravar um overdub.
+1. Insert DinLooper on a REAPER track.
+2. Choose a trigger mode.
+3. Press **REC**.
+4. Play or sing.
+5. Press **FINISH** to close the recording.
+6. The loop starts playing automatically.
+7. Press **REC** again to record an overdub.
 
-Cada overdub aparece como uma nova layer, com seus próprios controles.
+Every overdub becomes a separate layer with its own controls.
 
-## Modos de trigger
+## Trigger modes
 
-O menu **Trigger** define quando a gravação começa:
+The **Trigger** menu controls when recording begins:
 
-- **Instant:** começa assim que REC é pressionado.
-- **Audio + MIDI:** começa com o primeiro sinal válido de áudio ou MIDI.
-- **Audio Only:** espera o áudio ultrapassar o threshold.
-- **MIDI Only:** espera uma mensagem Note On.
+- **Instant:** recording starts as soon as REC is pressed.
+- **Audio + MIDI:** recording starts with whichever valid signal arrives first.
+- **Audio Only:** waits until the input level crosses the threshold.
+- **MIDI Only:** waits for a Note On message.
 
-O threshold pode ser ajustado arrastando a linha azul no medidor de entrada.
+Drag the blue line on the input meter to adjust the audio threshold.
 
-## Controles principais
+## Main controls
 
-- **REC:** prepara ou inicia uma gravação. Durante a gravação, muda para
-  **FINISH** e confirma o áudio gravado.
-- **REC PEDAL:** funciona como REC, mas permite concluir a gravação com o pedal
-  de sustain, tanto ao pressionar quanto ao soltar o pedal.
-- **PLAY:** volta a reproduzir um loop parado.
-- **STOP:** salva a gravação atual, quando houver, e para a reprodução.
-- **CANCEL:** descarta somente a gravação atual. As layers anteriores continuam
-  tocando.
-- **REWIND:** volta ao início do loop.
-- **UNDO / REDO:** desfazem ou refazem a última operação com layers.
-- **RESET:** apaga a sessão atual e reinicia o looper.
+- **REC:** arms or starts recording. While recording, it changes to **FINISH**
+  and closes the current loop or overdub.
+- **REC PEDAL:** works like REC, but also waits for a sustain pedal event to
+  finish. While waiting, REC or REC PEDAL can still finish the recording
+  manually.
+- **PLAY:** resumes a stopped loop.
+- **STOP:** saves the current recording, when applicable, and stops playback.
+- **CANCEL:** discards only the recording currently in progress. Existing
+  layers keep playing.
+- **REWIND:** returns to the beginning of the loop.
+- **UNDO / REDO:** undo or restore layer operations.
+- **RESET:** clears the current session and resets the looper.
+
+## Waveform and loop trimming
+
+The waveform shows the original loop, the current playback position, and the
+recording state.
+
+Drag the handles at either end of the waveform to adjust the active loop range.
+The edit is non-destructive: audio outside the selected area is kept and can be
+restored by moving the handles again.
+
+**REC COMP** can automatically trim a small amount from the end when the first
+loop is finished with REC. This helps compensate for control and monitoring
+delay. Set it to `0 ms` to disable the compensation.
 
 ## Layers
 
-Cada nova gravação recebe um número próprio e aparece no mixer central.
+Each recording receives its own number and appears in the central mixer. Every
+layer provides:
 
-Em cada layer é possível:
+- an audio level meter;
+- volume control;
+- Mute;
+- Solo;
+- a Delete button.
 
-- acompanhar o nível do áudio;
-- ajustar o volume;
-- ativar Mute;
-- ativar Solo;
-- apagar usando o botão X.
-
-Uma layer apagada pode ser recuperada com Undo enquanto seu espaço não tiver
-sido usado por uma nova gravação. O limite é de 16 layers ativas, mas a
-numeração pode continuar aumentando durante a sessão.
+Deleted slots are reused safely. The plugin supports up to 16 active layers,
+while layer numbering can continue to increase during a session.
 
 ## Audio Thru
 
-Por padrão, o **Audio Thru fica desligado**. Nesse modo, a saída do plugin contém
-somente os loops gravados, evitando duplicar o áudio que já está sendo ouvido
-pelo REAPER.
+**Audio Thru is off by default.** In this mode, DinLooper outputs only recorded
+loops, preventing the input signal from being doubled when REAPER is already
+monitoring it.
 
-Ative **Audio Thru** se quiser que o DinLooper também envie o áudio original da
-entrada para a saída.
+Enable Audio Thru if you want DinLooper to include the original input in its
+output.
 
-## REAPER, MIDI e OSC
+## REAPER, MIDI, and OSC
 
-Os principais controles e os volumes, Mutes e Solos das 16 posições de layer
-aparecem como parâmetros do VST3. Isso permite usar:
+The main commands and the volume, Mute, and Solo controls for all 16 layer slots
+are exposed as VST3 parameters. They can be controlled with:
 
-- MIDI Learn;
+- REAPER Learn;
+- MIDI;
 - OSC;
-- pedais;
-- controladores;
+- foot controllers;
 - Stream Deck;
-- automação do REAPER.
+- REAPER automation.
 
-## Instalação no Windows
+## Windows installation
 
-1. Baixe o arquivo mais recente na página de
+1. Download the latest Windows x64 ZIP from
    [Releases](https://github.com/randomicidio/DinLooper/releases).
-2. Extraia a pasta `DinLooper.vst3`.
-3. Copie essa pasta para:
-   `C:\Program Files\Common Files\VST3`
-   ou para outra pasta VST3 configurada no REAPER.
-4. Abra o REAPER e faça um novo scan de plugins, se necessário.
+2. Extract the `DinLooper.vst3` folder.
+3. Copy it to `C:\Program Files\Common Files\VST3`, or another VST3 folder
+   configured in REAPER.
+4. Rescan plugins in REAPER if needed.
 
-O pacote atual é destinado ao Windows x64.
+## Current limitations
 
-## Limitações atuais
+DinLooper is still in active development.
 
-O DinLooper ainda está em desenvolvimento.
+- Recorded audio is not restored after closing and reopening a project.
+- Parameter values are saved, but recorded loops are not yet stored in the
+  project session.
+- BPM sync, quantization, audio import, and export are planned for future
+  versions.
 
-- O áudio das layers ainda não é restaurado ao fechar e reabrir o projeto.
-- Os ajustes dos parâmetros são salvos, mas os loops gravados ainda não.
-- Sincronização com BPM, quantização, importação e exportação serão adicionadas
-  em etapas futuras.
+Test your complete computer, audio interface, controller, and REAPER setup
+before using the plugin in an important live performance.
 
-Antes de usar em uma apresentação importante, faça testes com seu computador,
-interface de áudio, controlador e projeto do REAPER.
+## Latest version
 
-## Versão atual
+[DinLooper v1.0.0 Alpha 4](https://github.com/randomicidio/DinLooper/releases/tag/v1.0.0-alpha.4)
 
-[DinLooper v1.0.0 Alpha 3](https://github.com/randomicidio/DinLooper/releases/tag/v1.0.0-alpha.3)
+## Development
 
-## Desenvolvimento
-
-O DinLooper é um projeto aberto, desenvolvido em C++ com JUCE.
-
-Código-fonte, histórico de mudanças e versões estão disponíveis neste
-repositório.
+DinLooper is an open-source project written in C++ with JUCE. The source code,
+change history, and published builds are available in this repository.
