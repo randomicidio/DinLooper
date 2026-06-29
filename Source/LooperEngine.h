@@ -66,6 +66,7 @@ public:
     float getCropStart() const;
     float getCropEnd() const;
     void setCropRange(float start, float end);
+    void setPitchSemitones(float semitones);
 
 private:
     void run() override;
@@ -83,6 +84,11 @@ private:
     int getActiveLoopEnd() const;
     int getActiveLoopLength() const;
     void resetCropRange();
+    float readLayerSample(const juce::AudioBuffer<float>& buffer,
+                          int channel,
+                          double position,
+                          int loopStart,
+                          int activeLength) const;
     static void publishPeak(std::atomic<float>& destination, float peak);
 
 public:
@@ -147,4 +153,7 @@ private:
     std::atomic<int> requestedLayerIndex{ -1 };
     std::atomic<int> allocationLengthSamples{ 0 };
     int preparedChannelCount = 0;
+    juce::SmoothedValue<float> pitchSemitones;
+    double pitchGrainPhase = 0.0;
+    int pitchWindowSamples = 2048;
 };

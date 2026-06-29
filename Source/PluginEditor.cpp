@@ -50,6 +50,48 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         juce::Font::bold)));
     content.addAndMakeVisible(statusLabel);
 
+    const auto configureTopControl = [this](juce::Label& label,
+                                             juce::Slider& slider,
+                                             const juce::String& text,
+                                             const juce::String& suffix)
+    {
+        label.setText(text, juce::dontSendNotification);
+        label.setJustificationType(juce::Justification::centred);
+        label.setColour(juce::Label::textColourId, secondaryText);
+        label.setFont(juce::Font(juce::FontOptions(9.0f,
+                                                   juce::Font::bold)));
+        content.addAndMakeVisible(label);
+
+        slider.setSliderStyle(juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle(juce::Slider::TextBoxRight,
+                               false,
+                               50,
+                               20);
+        slider.setTextValueSuffix(suffix);
+        slider.setColour(juce::Slider::backgroundColourId, backgroundTop);
+        slider.setColour(juce::Slider::trackColourId, accentBlue);
+        slider.setColour(juce::Slider::thumbColourId, primaryText);
+        slider.setColour(juce::Slider::textBoxTextColourId, primaryText);
+        slider.setColour(juce::Slider::textBoxBackgroundColourId,
+                         backgroundTop);
+        slider.setColour(juce::Slider::textBoxOutlineColourId, panelBorder);
+        content.addAndMakeVisible(slider);
+    };
+
+    configureTopControl(pitchLabel, pitchSlider, "PITCH", " st");
+    configureTopControl(recCompensationLabel,
+                        recCompensationSlider,
+                        "REC COMP",
+                        " ms");
+    pitchAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            audioProcessor.getParameters(), "pitch_semitones", pitchSlider);
+    recCompensationAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            audioProcessor.getParameters(),
+            "rec_compensation_ms",
+            recCompensationSlider);
+
     // ===== Progress =====
     progressLabel.setText("LOOP POSITION", juce::dontSendNotification);
     progressLabel.setJustificationType(juce::Justification::centred);
@@ -773,6 +815,10 @@ void DinLooperAudioProcessorEditor::resized()
 
     titleLabel.setBounds(0, 15, designWidth, 35);
     statusLabel.setBounds((designWidth - 366) / 2 + 12, 57, 366, 26);
+    pitchLabel.setBounds(18, 48, 112, 12);
+    pitchSlider.setBounds(18, 60, 112, 22);
+    recCompensationLabel.setBounds(570, 48, 112, 12);
+    recCompensationSlider.setBounds(570, 60, 112, 22);
 
     const int buttonW = 68;
     const int buttonH = 35;

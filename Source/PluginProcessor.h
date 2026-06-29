@@ -126,6 +126,8 @@ private:
     std::atomic<float>* thresholdParameter = nullptr;
     std::atomic<float>* masterGainParameter = nullptr;
     std::atomic<float>* audioThruParameter = nullptr;
+    std::atomic<float>* recCompensationParameter = nullptr;
+    std::atomic<float>* pitchParameter = nullptr;
     std::array<std::atomic<float>*, LooperEngine::maximumLayers>
         layerVolumeParameters{};
     std::array<std::atomic<float>*, LooperEngine::maximumLayers>

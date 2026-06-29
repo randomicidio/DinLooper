@@ -50,6 +50,8 @@ private:
     juce::Label inputMeterLabel;
     juce::Label masterMeterLabel;
     juce::Label masterVolumeLabel;
+    juce::Label pitchLabel;
+    juce::Label recCompensationLabel;
 
     double loopProgress = 0.0;
     float cropStart = 0.0f;
@@ -62,6 +64,8 @@ private:
     juce::ToggleButton audioThruButton{ "Audio Thru" };
     juce::Slider thresholdSlider;
     juce::Slider masterVolumeSlider;
+    juce::Slider pitchSlider;
+    juce::Slider recCompensationSlider;
     juce::Viewport layerViewport;
     juce::Component layerControls;
     std::array<juce::Label, LooperEngine::maximumLayers> layerLabels;
@@ -82,6 +86,10 @@ private:
         thresholdAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         masterVolumeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        pitchAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        recCompensationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
         audioThruAttachment;
     std::array<

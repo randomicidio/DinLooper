@@ -24,6 +24,10 @@ namespace
     const juce::String thresholdParameterID   { "threshold_db" };
     const juce::String masterGainParameterID  { "master_gain_db" };
     const juce::String audioThruParameterID   { "audio_thru" };
+    const juce::String recCompensationParameterID {
+        "rec_compensation_ms"
+    };
+    const juce::String pitchParameterID { "pitch_semitones" };
 
     juce::String layerVolumeParameterID(int layer)
     {
@@ -71,11 +75,16 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
     thresholdParameter = parameters.getRawParameterValue(thresholdParameterID);
     masterGainParameter = parameters.getRawParameterValue(masterGainParameterID);
     audioThruParameter = parameters.getRawParameterValue(audioThruParameterID);
+    recCompensationParameter =
+        parameters.getRawParameterValue(recCompensationParameterID);
+    pitchParameter = parameters.getRawParameterValue(pitchParameterID);
 
     jassert(triggerModeParameter != nullptr);
     jassert(thresholdParameter != nullptr);
     jassert(masterGainParameter != nullptr);
     jassert(audioThruParameter != nullptr);
+    jassert(recCompensationParameter != nullptr);
+    jassert(pitchParameter != nullptr);
 
     for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
     {
@@ -238,7 +247,9 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                                       std::memory_order_acq_rel);
 
         if ((commandsBeforeFinish & recCommand) != 0)
-            looper.pressRecWithEndCompensation(0.07);
+            looper.pressRecWithEndCompensation(
+                recCompensationParameter->load(std::memory_order_relaxed)
+                    / 1000.0);
     }
 
     processPendingCommands();
@@ -280,6 +291,9 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             layerSoloParameters[index]->load(
                 std::memory_order_relaxed) >= 0.5f);
     }
+
+    looper.setPitchSemitones(
+        pitchParameter->load(std::memory_order_relaxed));
 
     const auto triggerSample = findInputTriggerSample(buffer, midiMessages);
     const auto sustainStopSample = findSustainPedalSample(midiMessages);
@@ -569,6 +583,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         juce::ParameterID { audioThruParameterID, 1 },
         "Audio Thru",
         false));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { recCompensationParameterID, 1 },
+        "REC Compensation",
+        juce::NormalisableRange<float> { 0.0f, 250.0f, 1.0f },
+        70.0f,
+        juce::AudioParameterFloatAttributes().withLabel("ms")));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID { pitchParameterID, 1 },
+        "Pitch",
+        -12,
+        12,
+        0,
+        juce::AudioParameterIntAttributes().withLabel("st")));
 
     for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
     {
@@ -656,7 +683,9 @@ void DinLooperAudioProcessor::processPendingCommands()
         const auto wasIdle = looper.getState() == LooperEngine::State::Idle;
 
         if (looper.getState() == LooperEngine::State::RecordingFirstLoop)
-            looper.pressRecWithEndCompensation(0.07);
+            looper.pressRecWithEndCompensation(
+                recCompensationParameter->load(std::memory_order_relaxed)
+                    / 1000.0);
         else
             looper.pressRec();
 
