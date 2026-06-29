@@ -42,6 +42,7 @@ public:
     int getLayerCount() const;
     int getStoredLayerCount() const;
     bool isLayerActive(int layer) const;
+    int getLayerNumber(int layer) const;
     float getLayerVolume(int layer) const;
     bool isLayerMuted(int layer) const;
     bool isLayerSoloed(int layer) const;
@@ -97,6 +98,7 @@ private:
         readyLayerBuffers;
     std::array<int, maximumLayers> layerBufferSlots{};
     std::array<std::atomic<bool>, maximumLayers> layerActive{};
+    std::array<std::atomic<int>, maximumLayers> layerNumbers{};
     std::array<std::atomic<float>, maximumLayers> layerVolumes{};
     std::array<std::atomic<bool>, maximumLayers> layerMutes{};
     std::array<std::atomic<bool>, maximumLayers> layerSolos{};
@@ -107,6 +109,7 @@ private:
     int undoHistorySize = 0;
     int redoHistorySize = 0;
     std::atomic<unsigned int> pendingLayerDeletes{ 0 };
+    int nextLayerNumber = 1;
 
     double currentSampleRate = 44100.0;
     int recordedSamples = 0;

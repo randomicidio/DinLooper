@@ -391,6 +391,11 @@ bool DinLooperAudioProcessor::isLayerActive(int layer) const
     return looper.isLayerActive(layer);
 }
 
+int DinLooperAudioProcessor::getLayerNumber(int layer) const
+{
+    return looper.getLayerNumber(layer);
+}
+
 float DinLooperAudioProcessor::getLayerVolume(int layer) const
 {
     return looper.getLayerVolume(layer);
@@ -521,7 +526,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         auto volumeRange =
             juce::NormalisableRange<float> { -60.0f, 6.0f, 0.1f };
         volumeRange.setSkewForCentre(-12.0f);
-        const auto layerName = "Layer " + juce::String(layer + 1);
+        const auto layerName = "Layer Slot " + juce::String(layer + 1);
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID { layerVolumeParameterID(layer), 1 },

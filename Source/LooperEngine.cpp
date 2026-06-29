@@ -14,6 +14,7 @@ LooperEngine::LooperEngine()
     for (int layer = 0; layer < maximumLayers; ++layer)
     {
         layerActive[layer] = false;
+        layerNumbers[layer] = 0;
         layerVolumes[layer] = 1.0f;
         layerMutes[layer] = false;
         layerSolos[layer] = false;
@@ -70,6 +71,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     undoHistorySize = 0;
     redoHistorySize = 0;
     pendingLayerDeletes = 0;
+    nextLayerNumber = 1;
     layerCount = 0;
     progress = 0.0f;
     loopLength = 0.0f;
@@ -78,6 +80,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     for (int layer = 0; layer < maximumLayers; ++layer)
     {
         layerActive[layer] = false;
+        layerNumbers[layer] = 0;
         layerVolumes[layer] = 1.0f;
         layerMutes[layer] = false;
         layerSolos[layer] = false;
@@ -135,6 +138,7 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
         {
             applyBoundaryFade(*firstLayer, recordedSamples);
             storedLayerCount = 1;
+            layerNumbers[0] = nextLayerNumber++;
             activateLayer(0);
             pushHistory(0, true);
             playbackPosition = 0;
@@ -545,6 +549,7 @@ void LooperEngine::pressRec()
             applyBoundaryFade(*firstLayer, recordedSamples);
             currentState = State::Playing;
             storedLayerCount = 1;
+            layerNumbers[0] = nextLayerNumber++;
             activateLayer(0);
             pushHistory(0, true);
             playbackPosition = 0;
@@ -632,6 +637,7 @@ void LooperEngine::pressRec()
             layerMutes[targetLayer] = false;
             layerSolos[targetLayer] = false;
             currentLayerGains[targetLayer] = 1.0f;
+            layerNumbers[targetLayer] = nextLayerNumber++;
             discardHistoryForLayer(targetLayer);
             activateLayer(targetLayer);
             pushHistory(targetLayer, true);
@@ -805,6 +811,7 @@ void LooperEngine::pressReset()
     undoHistorySize = 0;
     redoHistorySize = 0;
     pendingLayerDeletes = 0;
+    nextLayerNumber = 1;
 
     progress = 0.0f;
     loopLength = 0.0f;
@@ -829,6 +836,7 @@ void LooperEngine::pressReset()
     for (int layer = 0; layer < maximumLayers; ++layer)
     {
         layerActive[layer] = false;
+        layerNumbers[layer] = 0;
         layerVolumes[layer] = 1.0f;
         layerMutes[layer] = false;
         layerSolos[layer] = false;
@@ -863,6 +871,13 @@ bool LooperEngine::isLayerActive(int layer) const
 {
     return layer >= 0 && layer < maximumLayers
            && layerActive[layer].load(std::memory_order_acquire);
+}
+
+int LooperEngine::getLayerNumber(int layer) const
+{
+    return layer >= 0 && layer < maximumLayers
+        ? layerNumbers[layer].load(std::memory_order_acquire)
+        : 0;
 }
 
 float LooperEngine::getLayerVolume(int layer) const

@@ -73,6 +73,7 @@ public:
     int getLayerCount() const;
     int getStoredLayerCount() const;
     bool isLayerActive(int layer) const;
+    int getLayerNumber(int layer) const;
     float getLayerVolume(int layer) const;
     bool isLayerMuted(int layer) const;
     bool isLayerSoloed(int layer) const;

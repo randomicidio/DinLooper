@@ -392,6 +392,9 @@ void DinLooperAudioProcessorEditor::updateLayerControls()
         }
 
         const auto y = visibleRow * rowHeight;
+        layerLabels[index].setText(
+            "L" + juce::String(audioProcessor.getLayerNumber(layer)),
+            juce::dontSendNotification);
         layerLabels[index].setBounds(0, y + 4, 30, 26);
         layerMeters[index].setBounds(32, y + 9, 55, 16);
         layerVolumeSliders[index].setBounds(92, y + 4, 190, 26);
