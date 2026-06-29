@@ -671,8 +671,7 @@ int DinLooperAudioProcessor::findSustainPedalSample(
         const auto& message = metadata.getMessage();
 
         if (message.isController()
-            && message.getControllerNumber() == 64
-            && message.getControllerValue() >= 64)
+            && message.getControllerNumber() == 64)
         {
             return metadata.samplePosition;
         }
