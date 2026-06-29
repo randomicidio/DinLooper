@@ -510,6 +510,12 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
         125.0f, 190.0f, 390.0f, 24.0f);
     const auto progressAmount = static_cast<float>(
         juce::jlimit(0.0, 1.0, loopProgress));
+    const auto looperState = audioProcessor.getState();
+    const auto waveformIsRecording =
+        looperState == LooperEngine::State::RecordingFirstLoop
+        || looperState == LooperEngine::State::Overdubbing;
+    const auto waveformAccent =
+        waveformIsRecording ? accentRed : accentBlue;
 
     g.setColour(backgroundTop);
     g.fillRoundedRectangle(progressBounds, 12.0f);
@@ -544,7 +550,7 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
         juce::Graphics::ScopedSaveState saveState(g);
         g.reduceClipRegion(progressBounds.withWidth(
             progressBounds.getWidth() * progressAmount).toNearestInt());
-        g.setColour(accentBlue);
+        g.setColour(waveformAccent);
         g.strokePath(waveformPath,
                      juce::PathStrokeType(1.4f,
                                           juce::PathStrokeType::curved,
@@ -553,7 +559,9 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
     const auto playheadX = progressBounds.getX()
                            + progressBounds.getWidth() * progressAmount;
-    g.setColour(primaryText.withAlpha(0.75f));
+    g.setColour(waveformIsRecording
+                    ? accentRed.brighter(0.25f)
+                    : primaryText.withAlpha(0.75f));
     g.drawVerticalLine(juce::roundToInt(playheadX),
                        progressBounds.getY() + 2.0f,
                        progressBounds.getBottom() - 2.0f);
