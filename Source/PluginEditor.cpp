@@ -106,6 +106,15 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             audioProcessor.getParameters(), "threshold_db", thresholdSlider);
 
+    audioThruButton.setColour(juce::ToggleButton::textColourId, primaryText);
+    audioThruButton.setColour(juce::ToggleButton::tickColourId, accentBlue);
+    audioThruButton.setColour(juce::ToggleButton::tickDisabledColourId,
+                              secondaryText);
+    addAndMakeVisible(audioThruButton);
+    audioThruAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            audioProcessor.getParameters(), "audio_thru", audioThruButton);
+
     // ===== Metering and master volume =====
     inputMeterLabel.setText("INPUT LEVEL", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
@@ -435,8 +444,9 @@ void DinLooperAudioProcessorEditor::resized()
 
     progressLabel.setBounds(105, 160, 430, 25);
 
-    triggerModeLabel.setBounds(170, 260, 110, 25);
-    triggerModeBox.setBounds(285, 260, 150, 25);
+    triggerModeLabel.setBounds(120, 260, 85, 25);
+    triggerModeBox.setBounds(210, 260, 145, 25);
+    audioThruButton.setBounds(385, 260, 125, 25);
     thresholdLabel.setBounds(0, 0, 0, 0);
     thresholdSlider.setBounds(24, 177, 58, 255);
 

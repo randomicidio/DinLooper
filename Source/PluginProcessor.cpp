@@ -22,6 +22,7 @@ namespace
     const juce::String triggerModeParameterID { "trigger_mode" };
     const juce::String thresholdParameterID   { "threshold_db" };
     const juce::String masterGainParameterID  { "master_gain_db" };
+    const juce::String audioThruParameterID   { "audio_thru" };
 }
 
 //==============================================================================
@@ -52,10 +53,12 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
     triggerModeParameter = parameters.getRawParameterValue(triggerModeParameterID);
     thresholdParameter = parameters.getRawParameterValue(thresholdParameterID);
     masterGainParameter = parameters.getRawParameterValue(masterGainParameterID);
+    audioThruParameter = parameters.getRawParameterValue(audioThruParameterID);
 
     jassert(triggerModeParameter != nullptr);
     jassert(thresholdParameter != nullptr);
     jassert(masterGainParameter != nullptr);
+    jassert(audioThruParameter != nullptr);
 }
 
 DinLooperAudioProcessor::~DinLooperAudioProcessor()
@@ -137,6 +140,11 @@ void DinLooperAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 {
     juce::ignoreUnused(samplesPerBlock);
     looper.prepareToPlay(sampleRate, getTotalNumInputChannels());
+    audioThruBuffer.setSize(getTotalNumInputChannels(),
+                            samplesPerBlock,
+                            false,
+                            false,
+                            true);
     masterGain.reset(sampleRate, 0.02);
     masterGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(
         masterGainParameter->load(std::memory_order_relaxed)));
@@ -184,6 +192,16 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 {
     juce::ScopedNoDenormals noDenormals;
     const auto numSamples = buffer.getNumSamples();
+    const auto audioThruEnabled =
+        audioThruParameter->load(std::memory_order_relaxed) >= 0.5f;
+
+    if (audioThruEnabled)
+    {
+        jassert(audioThruBuffer.getNumSamples() >= numSamples);
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            audioThruBuffer.copyFrom(channel, 0, buffer, channel, 0, numSamples);
+    }
 
     for (int channel = 0; channel < 2; ++channel)
     {
@@ -203,6 +221,17 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     looper.processBlock(buffer,
                         juce::jmax(0, triggerSample),
                         sustainStopSample);
+
+    if (audioThruEnabled)
+    {
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            buffer.addFrom(channel,
+                           0,
+                           audioThruBuffer,
+                           channel,
+                           0,
+                           numSamples);
+    }
 
     masterGain.setTargetValue(juce::Decibels::decibelsToGain(
         masterGainParameter->load(std::memory_order_relaxed)));
@@ -370,12 +399,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         juce::NormalisableRange<float> { -60.0f, 0.0f, 0.1f },
         -36.0f,
         juce::AudioParameterFloatAttributes().withLabel("dB")));
+    auto masterGainRange =
+        juce::NormalisableRange<float> { -60.0f, 6.0f, 0.1f };
+    masterGainRange.setSkewForCentre(-12.0f);
+
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { masterGainParameterID, 1 },
         "Master Volume",
-        juce::NormalisableRange<float> { -60.0f, 6.0f, 0.1f },
+        masterGainRange,
         0.0f,
         juce::AudioParameterFloatAttributes().withLabel("dB")));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { audioThruParameterID, 1 },
+        "Audio Thru",
+        false));
 
     return layout;
 }

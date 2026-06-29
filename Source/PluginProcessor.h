@@ -107,7 +107,9 @@ private:
     std::atomic<float>* triggerModeParameter = nullptr;
     std::atomic<float>* thresholdParameter = nullptr;
     std::atomic<float>* masterGainParameter = nullptr;
+    std::atomic<float>* audioThruParameter = nullptr;
     juce::SmoothedValue<float> masterGain;
+    juce::AudioBuffer<float> audioThruBuffer;
     std::array<std::atomic<float>, 2> inputPeaks{};
     std::array<std::atomic<float>, 2> masterPeaks{};
     std::atomic<unsigned int> pendingCommands{ 0 };

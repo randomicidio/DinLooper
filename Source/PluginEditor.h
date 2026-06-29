@@ -44,6 +44,7 @@ private:
     double loopProgress = 0.0;
 
     juce::ComboBox triggerModeBox;
+    juce::ToggleButton audioThruButton{ "Audio Thru" };
     juce::Slider thresholdSlider;
     juce::Slider masterVolumeSlider;
 
@@ -56,6 +57,8 @@ private:
         thresholdAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         masterVolumeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+        audioThruAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DinLooperAudioProcessorEditor)
 };
