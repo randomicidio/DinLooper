@@ -15,6 +15,7 @@ namespace
     const juce::String playParameterID  { "play" };
     const juce::String stopParameterID  { "stop" };
     const juce::String cancelParameterID { "cancel" };
+    const juce::String playStopParameterID { "play_stop" };
     const juce::String undoParameterID  { "undo" };
     const juce::String redoParameterID  { "redo" };
     const juce::String resetParameterID { "reset" };
@@ -61,6 +62,7 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
     parameters.addParameterListener(playParameterID, this);
     parameters.addParameterListener(stopParameterID, this);
     parameters.addParameterListener(cancelParameterID, this);
+    parameters.addParameterListener(playStopParameterID, this);
     parameters.addParameterListener(undoParameterID, this);
     parameters.addParameterListener(redoParameterID, this);
     parameters.addParameterListener(resetParameterID, this);
@@ -99,6 +101,7 @@ DinLooperAudioProcessor::~DinLooperAudioProcessor()
     parameters.removeParameterListener(playParameterID, this);
     parameters.removeParameterListener(stopParameterID, this);
     parameters.removeParameterListener(cancelParameterID, this);
+    parameters.removeParameterListener(playStopParameterID, this);
     parameters.removeParameterListener(undoParameterID, this);
     parameters.removeParameterListener(redoParameterID, this);
     parameters.removeParameterListener(resetParameterID, this);
@@ -344,6 +347,11 @@ void DinLooperAudioProcessor::pressStop()
     triggerParameter(stopParameterID);
 }
 
+void DinLooperAudioProcessor::pressPlayStop()
+{
+    triggerParameter(playStopParameterID);
+}
+
 void DinLooperAudioProcessor::pressCancel()
 {
     triggerParameter(cancelParameterID);
@@ -559,6 +567,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID { cancelParameterID, 1 }, "CANCEL", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { playStopParameterID, 1 }, "PLAY/STOP", false));
 
     return layout;
 }
@@ -575,6 +585,8 @@ void DinLooperAudioProcessor::parameterChanged(const juce::String& parameterID,
     else if (parameterID == playParameterID)    command = playCommand;
     else if (parameterID == stopParameterID)    command = stopCommand;
     else if (parameterID == cancelParameterID)  command = cancelCommand;
+    else if (parameterID == playStopParameterID)
+        command = playStopCommand;
     else if (parameterID == undoParameterID)    command = undoCommand;
     else if (parameterID == redoParameterID)    command = redoCommand;
     else if (parameterID == resetParameterID)   command = resetCommand;
@@ -603,6 +615,7 @@ void DinLooperAudioProcessor::processPendingCommands()
     if ((commands & resetCommand) != 0) looper.pressReset();
     if ((commands & stopCommand) != 0)  looper.pressStop();
     if ((commands & cancelCommand) != 0) looper.pressCancel();
+    if ((commands & playStopCommand) != 0) looper.pressPlayStop();
     if ((commands & undoCommand) != 0)  looper.pressUndo();
     if ((commands & redoCommand) != 0)  looper.pressRedo();
     if ((commands & rewindCommand) != 0) looper.pressRewind();

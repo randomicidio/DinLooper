@@ -60,6 +60,7 @@ public:
     void pressRec();
     void pressPlay();
     void pressStop();
+    void pressPlayStop();
     void pressCancel();
     void pressUndo();
     void pressRedo();
@@ -104,7 +105,8 @@ private:
         resetCommand  = 1u << 5,
         rewindCommand    = 1u << 6,
         recSustainCommand = 1u << 7,
-        cancelCommand = 1u << 8
+        cancelCommand = 1u << 8,
+        playStopCommand = 1u << 9
     };
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

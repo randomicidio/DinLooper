@@ -711,6 +711,26 @@ void LooperEngine::pressPlay()
         currentState = State::Playing;
 }
 
+void LooperEngine::pressPlayStop()
+{
+    const auto state = currentState.load(std::memory_order_relaxed);
+
+    if (state == State::Stopped)
+    {
+        pressPlay();
+    }
+    else if (state == State::WaitingForInput)
+    {
+        pressCancel();
+    }
+    else if (state == State::Playing
+             || state == State::RecordingFirstLoop
+             || state == State::Overdubbing)
+    {
+        pressStop();
+    }
+}
+
 void LooperEngine::pressStop()
 {
     sustainFinishRequested = false;
