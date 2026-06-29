@@ -67,6 +67,7 @@ private:
     void activateLayer(int layer);
     void deactivateLayer(int layer);
     void pushHistory(int layer, bool activated);
+    void discardHistoryForLayer(int layer);
     void processPendingLayerDeletes();
     static void publishPeak(std::atomic<float>& destination, float peak);
 
@@ -74,6 +75,8 @@ public:
     static constexpr int maximumLayers = 16;
 
 private:
+    static constexpr int maximumBufferSlots = maximumLayers + 2;
+
     struct LayerAction
     {
         int layer = -1;
@@ -88,9 +91,9 @@ private:
 
     std::atomic<float> loopLength{ 0.0f };
 
-    std::array<std::unique_ptr<juce::AudioBuffer<float>>, maximumLayers>
+    std::array<std::unique_ptr<juce::AudioBuffer<float>>, maximumBufferSlots>
         ownedLayerBuffers;
-    std::array<std::atomic<juce::AudioBuffer<float>*>, maximumLayers>
+    std::array<std::atomic<juce::AudioBuffer<float>*>, maximumBufferSlots>
         readyLayerBuffers;
     std::array<int, maximumLayers> layerBufferSlots{};
     std::array<std::atomic<bool>, maximumLayers> layerActive{};
@@ -111,6 +114,7 @@ private:
     int maximumLoopSamples = 0;
     std::atomic<int> storedLayerCount{ 0 };
     int recordingLayerIndex = -1;
+    int recordingLogicalLayerIndex = -1;
     std::array<std::atomic<int>, 2> spareLayerSlots;
     std::atomic<bool> overdubStartRequested{ false };
     std::atomic<bool> sustainFinishRequested{ false };

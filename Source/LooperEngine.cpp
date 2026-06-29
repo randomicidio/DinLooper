@@ -57,6 +57,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     playbackPosition = 0;
     storedLayerCount = 0;
     recordingLayerIndex = -1;
+    recordingLogicalLayerIndex = -1;
     layerBufferSlots.fill(-1);
     layerBufferSlots[0] = 0;
     spareLayerSlots[0] = 1;
@@ -281,7 +282,7 @@ void LooperEngine::run()
     {
         auto layer = requestedLayerIndex.load(std::memory_order_acquire);
 
-        if (layer > 0 && layer < maximumLayers)
+        if (layer > 0 && layer < maximumBufferSlots)
         {
             const auto samples = allocationLengthSamples.load(std::memory_order_acquire);
             try
@@ -318,7 +319,8 @@ void LooperEngine::requestNextLayerBuffer()
 {
     const auto storedLayers = storedLayerCount.load(std::memory_order_acquire);
 
-    if (storedLayers >= maximumLayers)
+    if (storedLayers >= maximumLayers
+        && layerCount.load(std::memory_order_acquire) >= maximumLayers)
     {
         for (auto& slot : spareLayerSlots)
             slot.store(-1, std::memory_order_release);
@@ -332,7 +334,7 @@ void LooperEngine::requestNextLayerBuffer()
 
         if (spareSlot < 0)
         {
-            for (int candidate = 1; candidate < maximumLayers; ++candidate)
+            for (int candidate = 1; candidate < maximumBufferSlots; ++candidate)
             {
                 bool isUsed = candidate == recordingLayerIndex;
 
@@ -507,6 +509,7 @@ void LooperEngine::pressRec()
         {
             requestedLayerIndex = -1;
             storedLayerCount = 0;
+            recordingLogicalLayerIndex = -1;
             recordedSamples = 0;
             playbackPosition = 0;
             progress = 0.0f;
@@ -519,7 +522,7 @@ void LooperEngine::pressRec()
             for (auto& slot : spareLayerSlots)
                 slot.store(-1, std::memory_order_release);
 
-            for (int layer = 1; layer < maximumLayers; ++layer)
+            for (int layer = 1; layer < maximumBufferSlots; ++layer)
                 readyLayerBuffers[layer].store(nullptr,
                                                std::memory_order_release);
 
@@ -555,10 +558,27 @@ void LooperEngine::pressRec()
         if (overdubStartRequested.load(std::memory_order_relaxed))
         {
             overdubStartRequested = false;
+            recordingLogicalLayerIndex = -1;
             break;
         }
 
-        if (storedLayerCount.load(std::memory_order_relaxed) < maximumLayers)
+        const auto storedLayers =
+            storedLayerCount.load(std::memory_order_relaxed);
+        recordingLogicalLayerIndex = -1;
+
+        for (int layer = 0; layer < storedLayers; ++layer)
+        {
+            if (!layerActive[layer].load(std::memory_order_relaxed))
+            {
+                recordingLogicalLayerIndex = layer;
+                break;
+            }
+        }
+
+        if (recordingLogicalLayerIndex < 0 && storedLayers < maximumLayers)
+            recordingLogicalLayerIndex = storedLayers;
+
+        if (recordingLogicalLayerIndex >= 0)
         {
             overdubStartRequested = true;
             startPendingOverdubIfReady();
@@ -591,33 +611,32 @@ void LooperEngine::pressRec()
                 }
             }
 
-            const auto targetLayer =
-                storedLayerCount.load(std::memory_order_relaxed);
             const auto previousStoredLayers =
                 storedLayerCount.load(std::memory_order_relaxed);
+            const auto targetLayer = recordingLogicalLayerIndex >= 0
+                ? recordingLogicalLayerIndex
+                : previousStoredLayers;
 
-            for (int layerIndex = targetLayer;
-                 layerIndex < previousStoredLayers;
-                 ++layerIndex)
-            {
-                const auto discardedSlot = layerBufferSlots[layerIndex];
+            const auto replacedSlot = targetLayer < previousStoredLayers
+                ? layerBufferSlots[targetLayer]
+                : -1;
 
-                if (discardedSlot >= 0 && discardedSlot != recordingLayerIndex)
-                    readyLayerBuffers[discardedSlot].store(
-                        nullptr, std::memory_order_release);
-
-                layerBufferSlots[layerIndex] = -1;
-            }
+            if (replacedSlot >= 0 && replacedSlot != recordingLayerIndex)
+                readyLayerBuffers[replacedSlot].store(
+                    nullptr, std::memory_order_release);
 
             layerBufferSlots[targetLayer] = recordingLayerIndex;
-            storedLayerCount = targetLayer + 1;
+            storedLayerCount = juce::jmax(previousStoredLayers,
+                                          targetLayer + 1);
             layerVolumes[targetLayer] = 1.0f;
             layerMutes[targetLayer] = false;
             layerSolos[targetLayer] = false;
             currentLayerGains[targetLayer] = 1.0f;
+            discardHistoryForLayer(targetLayer);
             activateLayer(targetLayer);
             pushHistory(targetLayer, true);
             recordingLayerIndex = -1;
+            recordingLogicalLayerIndex = -1;
             requestNextLayerBuffer();
         }
 
@@ -716,6 +735,7 @@ void LooperEngine::pressStop()
         }
 
         recordingLayerIndex = -1;
+        recordingLogicalLayerIndex = -1;
         overdubSamplesWritten = 0;
         currentState = State::Stopped;
         requestNextLayerBuffer();
@@ -792,6 +812,7 @@ void LooperEngine::pressReset()
     playbackPosition = 0;
     storedLayerCount = 0;
     recordingLayerIndex = -1;
+    recordingLogicalLayerIndex = -1;
     requestedLayerIndex = -1;
     for (auto& slot : spareLayerSlots)
         slot.store(-1, std::memory_order_release);
@@ -802,7 +823,7 @@ void LooperEngine::pressReset()
     layerBufferSlots.fill(-1);
     layerBufferSlots[0] = 0;
 
-    for (int layer = 1; layer < maximumLayers; ++layer)
+    for (int layer = 1; layer < maximumBufferSlots; ++layer)
         readyLayerBuffers[layer].store(nullptr, std::memory_order_release);
 
     for (int layer = 0; layer < maximumLayers; ++layer)
@@ -930,6 +951,28 @@ void LooperEngine::pushHistory(int layer, bool activated)
 
     undoHistory[undoHistorySize++] = { layer, activated };
     redoHistorySize = 0;
+}
+
+void LooperEngine::discardHistoryForLayer(int layer)
+{
+    int writeIndex = 0;
+
+    for (int index = 0; index < undoHistorySize; ++index)
+    {
+        if (undoHistory[index].layer != layer)
+            undoHistory[writeIndex++] = undoHistory[index];
+    }
+
+    undoHistorySize = writeIndex;
+    writeIndex = 0;
+
+    for (int index = 0; index < redoHistorySize; ++index)
+    {
+        if (redoHistory[index].layer != layer)
+            redoHistory[writeIndex++] = redoHistory[index];
+    }
+
+    redoHistorySize = writeIndex;
 }
 
 void LooperEngine::processPendingLayerDeletes()
