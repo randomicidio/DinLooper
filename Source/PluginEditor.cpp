@@ -164,6 +164,100 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
             "master_gain_db",
             masterVolumeSlider);
 
+    // ===== Individual layer controls =====
+    layerViewport.setViewedComponent(&layerControls, false);
+    layerViewport.setScrollBarsShown(true, false);
+    layerViewport.setColour(juce::ScrollBar::thumbColourId,
+                            panelBorder.brighter(0.35f));
+    layerViewport.setColour(juce::ScrollBar::trackColourId,
+                            backgroundTop.withAlpha(0.45f));
+    content.addAndMakeVisible(layerViewport);
+
+    for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
+    {
+        auto& label = layerLabels[static_cast<size_t>(layer)];
+        label.setText("L" + juce::String(layer + 1),
+                      juce::dontSendNotification);
+        label.setJustificationType(juce::Justification::centred);
+        label.setColour(juce::Label::textColourId, primaryText);
+        label.setFont(juce::Font(juce::FontOptions(11.0f,
+                                                   juce::Font::bold)));
+        layerControls.addAndMakeVisible(label);
+
+        auto& meter = layerMeters[static_cast<size_t>(layer)];
+        meter.setSliderStyle(juce::Slider::LinearBar);
+        meter.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        meter.setRange(0.0, 1.0);
+        meter.setInterceptsMouseClicks(false, false);
+        meter.setColour(juce::Slider::backgroundColourId, backgroundTop);
+        meter.setColour(juce::Slider::trackColourId, accentGreen);
+        layerControls.addAndMakeVisible(meter);
+
+        auto& volume = layerVolumeSliders[static_cast<size_t>(layer)];
+        volume.setSliderStyle(juce::Slider::LinearHorizontal);
+        volume.setTextBoxStyle(juce::Slider::TextBoxRight,
+                               false, 49, 18);
+        volume.setRange(-60.0, 6.0, 0.1);
+        volume.setSkewFactorFromMidPoint(-12.0);
+        volume.setValue(0.0, juce::dontSendNotification);
+        volume.setTextValueSuffix(" dB");
+        volume.setColour(juce::Slider::backgroundColourId, backgroundTop);
+        volume.setColour(juce::Slider::trackColourId, accentBlue);
+        volume.setColour(juce::Slider::thumbColourId, primaryText);
+        volume.setColour(juce::Slider::textBoxTextColourId, primaryText);
+        volume.setColour(juce::Slider::textBoxBackgroundColourId,
+                         backgroundTop);
+        volume.setColour(juce::Slider::textBoxOutlineColourId, panelBorder);
+        volume.onValueChange = [this, layer]
+        {
+            audioProcessor.setLayerVolume(
+                layer,
+                juce::Decibels::decibelsToGain(
+                    static_cast<float>(
+                        layerVolumeSliders[static_cast<size_t>(layer)]
+                            .getValue()),
+                    -60.0f));
+        };
+        layerControls.addAndMakeVisible(volume);
+
+        auto& mute = layerMuteButtons[static_cast<size_t>(layer)];
+        mute.setButtonText("M");
+        mute.setColour(juce::ToggleButton::textColourId, primaryText);
+        mute.setColour(juce::ToggleButton::tickColourId, accentAmber);
+        mute.onClick = [this, layer]
+        {
+            audioProcessor.setLayerMuted(
+                layer,
+                layerMuteButtons[static_cast<size_t>(layer)]
+                    .getToggleState());
+        };
+        layerControls.addAndMakeVisible(mute);
+
+        auto& solo = layerSoloButtons[static_cast<size_t>(layer)];
+        solo.setButtonText("S");
+        solo.setColour(juce::ToggleButton::textColourId, primaryText);
+        solo.setColour(juce::ToggleButton::tickColourId, accentGreen);
+        solo.onClick = [this, layer]
+        {
+            audioProcessor.setLayerSoloed(
+                layer,
+                layerSoloButtons[static_cast<size_t>(layer)]
+                    .getToggleState());
+        };
+        layerControls.addAndMakeVisible(solo);
+
+        auto& remove = layerDeleteButtons[static_cast<size_t>(layer)];
+        remove.setButtonText("X");
+        remove.setColour(juce::TextButton::buttonColourId,
+                         accentRed.withMultipliedBrightness(0.45f));
+        remove.setColour(juce::TextButton::textColourOffId, primaryText);
+        remove.onClick = [this, layer]
+        {
+            audioProcessor.deleteLayer(layer);
+        };
+        layerControls.addAndMakeVisible(remove);
+    }
+
     // ===== Buttons =====
     content.addAndMakeVisible(recButton);
     content.addAndMakeVisible(playButton);
@@ -216,6 +310,7 @@ DinLooperAudioProcessorEditor::~DinLooperAudioProcessorEditor()
 void DinLooperAudioProcessorEditor::timerCallback()
 {
     updateLooperStatus();
+    updateLayerControls();
 }
 
 void DinLooperAudioProcessorEditor::updateLooperStatus()
@@ -267,6 +362,62 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
                                   || selectedTriggerMode == 3;
     thresholdLabel.setEnabled(usesInputTrigger);
     thresholdSlider.setEnabled(usesInputTrigger);
+}
+
+void DinLooperAudioProcessorEditor::updateLayerControls()
+{
+    constexpr int rowHeight = 36;
+    constexpr int contentWidth = 410;
+    int visibleRow = 0;
+    const auto storedLayers = audioProcessor.getStoredLayerCount();
+
+    for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
+    {
+        const auto index = static_cast<size_t>(layer);
+        const auto active = layer < storedLayers
+                            && audioProcessor.isLayerActive(layer);
+
+        layerLabels[index].setVisible(active);
+        layerMeters[index].setVisible(active);
+        layerVolumeSliders[index].setVisible(active);
+        layerMuteButtons[index].setVisible(active);
+        layerSoloButtons[index].setVisible(active);
+        layerDeleteButtons[index].setVisible(active);
+
+        if (!active)
+        {
+            layerMeterLevels[index] = 0.0f;
+            continue;
+        }
+
+        const auto y = visibleRow * rowHeight;
+        layerLabels[index].setBounds(0, y + 4, 30, 26);
+        layerMeters[index].setBounds(32, y + 9, 55, 16);
+        layerVolumeSliders[index].setBounds(92, y + 4, 190, 26);
+        layerMuteButtons[index].setBounds(287, y + 4, 38, 26);
+        layerSoloButtons[index].setBounds(326, y + 4, 38, 26);
+        layerDeleteButtons[index].setBounds(372, y + 5, 28, 24);
+
+        const auto peak = audioProcessor.consumeLayerPeak(layer);
+        layerMeterLevels[index] =
+            juce::jmax(peak, layerMeterLevels[index] * 0.82f);
+        layerMeters[index].setValue(layerMeterLevels[index],
+                                    juce::dontSendNotification);
+        layerVolumeSliders[index].setValue(
+            juce::Decibels::gainToDecibels(
+                audioProcessor.getLayerVolume(layer), -60.0f),
+            juce::dontSendNotification);
+        layerMuteButtons[index].setToggleState(
+            audioProcessor.isLayerMuted(layer),
+            juce::dontSendNotification);
+        layerSoloButtons[index].setToggleState(
+            audioProcessor.isLayerSoloed(layer),
+            juce::dontSendNotification);
+        ++visibleRow;
+    }
+
+    layerControls.setSize(contentWidth,
+                          juce::jmax(130, visibleRow * rowHeight));
 }
 
 //==============================================================================
@@ -471,5 +622,7 @@ void DinLooperAudioProcessorEditor::resized()
     masterVolumeLabel.setBounds(553, 158, 58, 16);
     masterVolumeSlider.setBounds(553, 177, 58, 291);
 
-    layersLabel.setBounds(105, 375, 430, 25);
+    layersLabel.setBounds(105, 309, 430, 22);
+    layerViewport.setBounds(112, 333, 416, 140);
+    updateLayerControls();
 }

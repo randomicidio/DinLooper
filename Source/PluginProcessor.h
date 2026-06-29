@@ -71,6 +71,16 @@ public:
     LooperEngine::State getState() const;
 
     int getLayerCount() const;
+    int getStoredLayerCount() const;
+    bool isLayerActive(int layer) const;
+    float getLayerVolume(int layer) const;
+    bool isLayerMuted(int layer) const;
+    bool isLayerSoloed(int layer) const;
+    float consumeLayerPeak(int layer);
+    void setLayerVolume(int layer, float gain);
+    void setLayerMuted(int layer, bool muted);
+    void setLayerSoloed(int layer, bool soloed);
+    void deleteLayer(int layer);
 
     float getProgress() const;
     float getLoopLength() const;

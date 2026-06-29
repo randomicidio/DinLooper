@@ -329,6 +329,56 @@ int DinLooperAudioProcessor::getLayerCount() const
     return looper.getLayerCount();
 }
 
+int DinLooperAudioProcessor::getStoredLayerCount() const
+{
+    return looper.getStoredLayerCount();
+}
+
+bool DinLooperAudioProcessor::isLayerActive(int layer) const
+{
+    return looper.isLayerActive(layer);
+}
+
+float DinLooperAudioProcessor::getLayerVolume(int layer) const
+{
+    return looper.getLayerVolume(layer);
+}
+
+bool DinLooperAudioProcessor::isLayerMuted(int layer) const
+{
+    return looper.isLayerMuted(layer);
+}
+
+bool DinLooperAudioProcessor::isLayerSoloed(int layer) const
+{
+    return looper.isLayerSoloed(layer);
+}
+
+float DinLooperAudioProcessor::consumeLayerPeak(int layer)
+{
+    return looper.consumeLayerPeak(layer);
+}
+
+void DinLooperAudioProcessor::setLayerVolume(int layer, float gain)
+{
+    looper.setLayerVolume(layer, gain);
+}
+
+void DinLooperAudioProcessor::setLayerMuted(int layer, bool muted)
+{
+    looper.setLayerMuted(layer, muted);
+}
+
+void DinLooperAudioProcessor::setLayerSoloed(int layer, bool soloed)
+{
+    looper.setLayerSoloed(layer, soloed);
+}
+
+void DinLooperAudioProcessor::deleteLayer(int layer)
+{
+    looper.deleteLayer(layer);
+}
+
 float DinLooperAudioProcessor::getProgress() const
 {
     return looper.getProgress();

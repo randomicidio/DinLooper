@@ -19,6 +19,7 @@ private:
 
     void timerCallback() override;
     void updateLooperStatus();
+    void updateLayerControls();
 
     DinLooperAudioProcessor& audioProcessor;
     juce::Component content;
@@ -51,6 +52,15 @@ private:
     juce::ToggleButton audioThruButton{ "Audio Thru" };
     juce::Slider thresholdSlider;
     juce::Slider masterVolumeSlider;
+    juce::Viewport layerViewport;
+    juce::Component layerControls;
+    std::array<juce::Label, LooperEngine::maximumLayers> layerLabels;
+    std::array<juce::Slider, LooperEngine::maximumLayers> layerMeters;
+    std::array<juce::Slider, LooperEngine::maximumLayers> layerVolumeSliders;
+    std::array<juce::ToggleButton, LooperEngine::maximumLayers> layerMuteButtons;
+    std::array<juce::ToggleButton, LooperEngine::maximumLayers> layerSoloButtons;
+    std::array<juce::TextButton, LooperEngine::maximumLayers> layerDeleteButtons;
+    std::array<float, LooperEngine::maximumLayers> layerMeterLevels{};
 
     std::array<float, 2> inputMeterDb{ -60.0f, -60.0f };
     std::array<float, 2> masterMeterDb{ -60.0f, -60.0f };

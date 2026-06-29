@@ -40,6 +40,16 @@ public:
     juce::String getStateName() const;
 
     int getLayerCount() const;
+    int getStoredLayerCount() const;
+    bool isLayerActive(int layer) const;
+    float getLayerVolume(int layer) const;
+    bool isLayerMuted(int layer) const;
+    bool isLayerSoloed(int layer) const;
+    float consumeLayerPeak(int layer);
+    void setLayerVolume(int layer, float gain);
+    void setLayerMuted(int layer, bool muted);
+    void setLayerSoloed(int layer, bool soloed);
+    void deleteLayer(int layer);
 
     float getProgress() const;
     void setProgress(float p);
@@ -54,15 +64,25 @@ private:
     void requestNextLayerBuffer();
     void startPendingOverdubIfReady();
     void applyBoundaryFade(juce::AudioBuffer<float>&, int numSamples);
+    void activateLayer(int layer);
+    void deactivateLayer(int layer);
+    void pushHistory(int layer, bool activated);
+    void processPendingLayerDeletes();
+    static void publishPeak(std::atomic<float>& destination, float peak);
 
+public:
     static constexpr int maximumLayers = 16;
 
+private:
+    struct LayerAction
+    {
+        int layer = -1;
+        bool activated = false;
+    };
 
     std::atomic<State> currentState{ State::Idle };
 
     std::atomic<int> layerCount{ 0 };
-
-    int undoCount = 0;
 
     std::atomic<float> progress{ 0.0f };
 
@@ -73,6 +93,17 @@ private:
     std::array<std::atomic<juce::AudioBuffer<float>*>, maximumLayers>
         readyLayerBuffers;
     std::array<int, maximumLayers> layerBufferSlots{};
+    std::array<std::atomic<bool>, maximumLayers> layerActive{};
+    std::array<std::atomic<float>, maximumLayers> layerVolumes{};
+    std::array<std::atomic<bool>, maximumLayers> layerMutes{};
+    std::array<std::atomic<bool>, maximumLayers> layerSolos{};
+    std::array<std::atomic<float>, maximumLayers> layerPeaks{};
+    std::array<float, maximumLayers> currentLayerGains{};
+    std::array<LayerAction, 128> undoHistory{};
+    std::array<LayerAction, 128> redoHistory{};
+    int undoHistorySize = 0;
+    int redoHistorySize = 0;
+    std::atomic<unsigned int> pendingLayerDeletes{ 0 };
 
     double currentSampleRate = 44100.0;
     int recordedSamples = 0;
