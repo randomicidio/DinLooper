@@ -1,57 +1,102 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+    const auto backgroundTop = juce::Colour::fromRGB(10, 14, 22);
+    const auto backgroundBottom = juce::Colour::fromRGB(18, 25, 38);
+    const auto panelColour = juce::Colour::fromRGB(24, 32, 47);
+    const auto panelBorder = juce::Colour::fromRGB(48, 63, 86);
+    const auto primaryText = juce::Colour::fromRGB(236, 242, 252);
+    const auto secondaryText = juce::Colour::fromRGB(143, 158, 181);
+    const auto accentBlue = juce::Colour::fromRGB(65, 145, 255);
+    const auto accentRed = juce::Colour::fromRGB(235, 75, 88);
+    const auto accentGreen = juce::Colour::fromRGB(65, 205, 140);
+    const auto accentAmber = juce::Colour::fromRGB(244, 176, 74);
+    const auto accentPurple = juce::Colour::fromRGB(177, 116, 255);
+}
+
 //==============================================================================
 DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
     setSize(700, 420);
+    setOpaque(true);
 
     // ===== Title =====
     titleLabel.setText("DinLooper", juce::dontSendNotification);
     titleLabel.setJustificationType(juce::Justification::centred);
-    titleLabel.setFont(juce::Font(26.0f, juce::Font::bold));
+    titleLabel.setFont(juce::Font(juce::FontOptions(27.0f, juce::Font::bold)));
+    titleLabel.setColour(juce::Label::textColourId, primaryText);
     addAndMakeVisible(titleLabel);
 
     // ===== Status =====
     statusLabel.setText("IDLE", juce::dontSendNotification);
     statusLabel.setJustificationType(juce::Justification::centred);
+    statusLabel.setFont(juce::Font(juce::FontOptions(15.0f, juce::Font::bold)));
     addAndMakeVisible(statusLabel);
 
     // ===== Progress =====
-    progressLabel.setText("Loop Progress", juce::dontSendNotification);
+    progressLabel.setText("LOOP POSITION", juce::dontSendNotification);
     progressLabel.setJustificationType(juce::Justification::centred);
+    progressLabel.setColour(juce::Label::textColourId, secondaryText);
+    progressLabel.setFont(juce::Font(juce::FontOptions(12.0f,
+                                                       juce::Font::bold)));
     addAndMakeVisible(progressLabel);
+    loopProgressBar.setColour(juce::ProgressBar::backgroundColourId,
+                              backgroundTop);
+    loopProgressBar.setColour(juce::ProgressBar::foregroundColourId,
+                              accentBlue);
     addAndMakeVisible(loopProgressBar);
 
     // ===== Time =====
     timeLabel.setText("00.00 / 00.00", juce::dontSendNotification);
     timeLabel.setJustificationType(juce::Justification::centred);
+    timeLabel.setColour(juce::Label::textColourId, primaryText);
     addAndMakeVisible(timeLabel);
 
     // ===== Layers =====
     layersLabel.setText("Layers: 0", juce::dontSendNotification);
     layersLabel.setJustificationType(juce::Justification::centred);
+    layersLabel.setColour(juce::Label::textColourId, primaryText);
+    layersLabel.setFont(juce::Font(juce::FontOptions(16.0f,
+                                                     juce::Font::bold)));
     addAndMakeVisible(layersLabel);
 
     // ===== Trigger =====
     triggerModeLabel.setText("Trigger", juce::dontSendNotification);
     triggerModeLabel.setJustificationType(juce::Justification::centredRight);
+    triggerModeLabel.setColour(juce::Label::textColourId, secondaryText);
     addAndMakeVisible(triggerModeLabel);
 
     triggerModeBox.addItem("Instant", 1);
     triggerModeBox.addItem("Audio + MIDI", 2);
     triggerModeBox.addItem("Audio Only", 3);
     triggerModeBox.addItem("MIDI Only", 4);
+    triggerModeBox.setColour(juce::ComboBox::backgroundColourId,
+                             backgroundTop);
+    triggerModeBox.setColour(juce::ComboBox::textColourId, primaryText);
+    triggerModeBox.setColour(juce::ComboBox::outlineColourId, panelBorder);
+    triggerModeBox.setColour(juce::ComboBox::arrowColourId, accentBlue);
     addAndMakeVisible(triggerModeBox);
 
     thresholdLabel.setText("Threshold", juce::dontSendNotification);
     thresholdLabel.setJustificationType(juce::Justification::centredRight);
+    thresholdLabel.setColour(juce::Label::textColourId, secondaryText);
     addAndMakeVisible(thresholdLabel);
 
     thresholdSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     thresholdSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 70, 22);
     thresholdSlider.setTextValueSuffix(" dB");
+    thresholdSlider.setColour(juce::Slider::backgroundColourId,
+                              backgroundTop);
+    thresholdSlider.setColour(juce::Slider::trackColourId, accentBlue);
+    thresholdSlider.setColour(juce::Slider::thumbColourId, primaryText);
+    thresholdSlider.setColour(juce::Slider::textBoxTextColourId, primaryText);
+    thresholdSlider.setColour(juce::Slider::textBoxBackgroundColourId,
+                              backgroundTop);
+    thresholdSlider.setColour(juce::Slider::textBoxOutlineColourId,
+                              panelBorder);
     addAndMakeVisible(thresholdSlider);
 
     triggerModeAttachment =
@@ -70,6 +115,26 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     addAndMakeVisible(resetButton);
     addAndMakeVisible(rewindButton);
     addAndMakeVisible(recSustainButton);
+
+    const auto styleButton = [](juce::TextButton& button,
+                                juce::Colour colour)
+    {
+        button.setColour(juce::TextButton::buttonColourId,
+                         colour.withMultipliedBrightness(0.55f));
+        button.setColour(juce::TextButton::buttonOnColourId, colour);
+        button.setColour(juce::TextButton::textColourOffId, primaryText);
+        button.setColour(juce::TextButton::textColourOnId,
+                         juce::Colours::white);
+    };
+
+    styleButton(recButton, accentRed);
+    styleButton(recSustainButton, accentPurple);
+    styleButton(playButton, accentGreen);
+    styleButton(stopButton, accentAmber);
+    styleButton(rewindButton, accentBlue);
+    styleButton(undoButton, accentBlue);
+    styleButton(redoButton, accentBlue);
+    styleButton(resetButton, juce::Colour::fromRGB(102, 116, 139));
 
     recButton.onClick = [this] { audioProcessor.pressRec(); };
     playButton.onClick = [this] { audioProcessor.pressPlay(); };
@@ -97,7 +162,21 @@ void DinLooperAudioProcessorEditor::timerCallback()
 
 void DinLooperAudioProcessorEditor::updateLooperStatus()
 {
-    statusLabel.setText(audioProcessor.getStateName(), juce::dontSendNotification);
+    const auto stateName = audioProcessor.getStateName();
+    statusLabel.setText(stateName, juce::dontSendNotification);
+
+    auto statusColour = secondaryText;
+
+    if (stateName.contains("RECORD") || stateName.contains("SUSTAIN"))
+        statusColour = accentRed;
+    else if (stateName.contains("OVERDUB"))
+        statusColour = accentPurple;
+    else if (stateName.contains("PLAY"))
+        statusColour = accentGreen;
+    else if (stateName.contains("WAIT") || stateName.contains("PREPAR"))
+        statusColour = accentAmber;
+
+    statusLabel.setColour(juce::Label::textColourId, statusColour);
     layersLabel.setText("Layers: " + juce::String(audioProcessor.getLayerCount()),
                         juce::dontSendNotification);
 
@@ -118,14 +197,39 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
 //==============================================================================
 void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(25, 25, 25));
+    g.setGradientFill(juce::ColourGradient(backgroundTop,
+                                           0.0f,
+                                           0.0f,
+                                           backgroundBottom,
+                                           0.0f,
+                                           static_cast<float>(getHeight()),
+                                           false));
+    g.fillAll();
 
-    g.setColour(juce::Colours::darkgrey);
+    const auto drawPanel = [&g](juce::Rectangle<float> bounds)
+    {
+        g.setColour(panelColour);
+        g.fillRoundedRectangle(bounds, 10.0f);
+        g.setColour(panelBorder);
+        g.drawRoundedRectangle(bounds, 10.0f, 1.0f);
+    };
 
-    g.drawRect(getLocalBounds(), 2);
+    drawPanel({ 18.0f, 86.0f, static_cast<float>(getWidth() - 36), 54.0f });
+    drawPanel({ 18.0f, 150.0f, static_cast<float>(getWidth() - 36), 96.0f });
+    drawPanel({ 18.0f, 252.0f, static_cast<float>(getWidth() - 36), 43.0f });
+    drawPanel({ 18.0f, 315.0f, static_cast<float>(getWidth() - 36), 58.0f });
 
-    g.drawLine(20, 150, getWidth() - 20, 150);
-    g.drawLine(20, 300, getWidth() - 20, 300);
+    g.setColour(accentBlue.withAlpha(0.7f));
+    g.fillRoundedRectangle(300.0f, 52.0f, 100.0f, 2.0f, 1.0f);
+
+    g.setColour(secondaryText.withAlpha(0.7f));
+    g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+    g.drawText("LIVE LOOP STATION",
+               0,
+               390,
+               getWidth(),
+               16,
+               juce::Justification::centred);
 }
 
 void DinLooperAudioProcessorEditor::resized()
