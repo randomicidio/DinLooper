@@ -33,7 +33,10 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     // ===== Status =====
     statusLabel.setText("IDLE", juce::dontSendNotification);
     statusLabel.setJustificationType(juce::Justification::centred);
-    statusLabel.setFont(juce::Font(juce::FontOptions(15.0f, juce::Font::bold)));
+    statusLabel.setFont(juce::Font(juce::FontOptions(
+        juce::Font::getDefaultMonospacedFontName(),
+        14.0f,
+        juce::Font::bold)));
     addAndMakeVisible(statusLabel);
 
     // ===== Progress =====
@@ -172,6 +175,7 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
         statusColour = accentAmber;
 
     statusLabel.setColour(juce::Label::textColourId, statusColour);
+    repaint((getWidth() - 230) / 2, 57, 230, 26);
     layersLabel.setText("Layers: " + juce::String(audioProcessor.getLayerCount()),
                         juce::dontSendNotification);
 
@@ -215,6 +219,31 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     drawPanel({ 18.0f, 252.0f, static_cast<float>(getWidth() - 36), 43.0f });
     drawPanel({ 18.0f, 315.0f, static_cast<float>(getWidth() - 36), 58.0f });
 
+    const auto statusBounds = juce::Rectangle<float>(
+        static_cast<float>((getWidth() - 230) / 2),
+        57.0f,
+        230.0f,
+        26.0f);
+    const auto statusColour =
+        statusLabel.findColour(juce::Label::textColourId);
+
+    g.setColour(juce::Colours::black.withAlpha(0.28f));
+    g.fillRoundedRectangle(statusBounds.translated(0.0f, 2.0f), 6.0f);
+    g.setColour(backgroundTop);
+    g.fillRoundedRectangle(statusBounds, 6.0f);
+    g.setColour(statusColour.withAlpha(0.65f));
+    g.drawRoundedRectangle(statusBounds, 6.0f, 1.0f);
+    g.setColour(statusColour.withAlpha(0.18f));
+    g.fillEllipse(statusBounds.getX() + 10.0f,
+                  statusBounds.getCentreY() - 6.0f,
+                  12.0f,
+                  12.0f);
+    g.setColour(statusColour);
+    g.fillEllipse(statusBounds.getX() + 13.0f,
+                  statusBounds.getCentreY() - 3.0f,
+                  6.0f,
+                  6.0f);
+
     const auto progressBounds = juce::Rectangle<float>(
         100.0f, 190.0f, static_cast<float>(getWidth() - 200), 24.0f);
     const auto progressAmount = static_cast<float>(
@@ -257,7 +286,7 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
 void DinLooperAudioProcessorEditor::resized()
 {
     titleLabel.setBounds(0, 15, getWidth(), 35);
-    statusLabel.setBounds(0, 55, getWidth(), 25);
+    statusLabel.setBounds((getWidth() - 196) / 2 + 12, 57, 196, 26);
 
     const int buttonW = 76;
     const int buttonH = 35;
