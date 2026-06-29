@@ -43,11 +43,6 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     progressLabel.setFont(juce::Font(juce::FontOptions(12.0f,
                                                        juce::Font::bold)));
     addAndMakeVisible(progressLabel);
-    loopProgressBar.setColour(juce::ProgressBar::backgroundColourId,
-                              backgroundTop);
-    loopProgressBar.setColour(juce::ProgressBar::foregroundColourId,
-                              accentBlue);
-    addAndMakeVisible(loopProgressBar);
 
     // ===== Time =====
     timeLabel.setText("00.00 / 00.00", juce::dontSendNotification);
@@ -181,6 +176,7 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
                         juce::dontSendNotification);
 
     loopProgress = audioProcessor.getProgress();
+    repaint(100, 190, getWidth() - 200, 24);
     timeLabel.setText(juce::String(audioProcessor.getCurrentTime(), 2)
                           + " / "
                           + juce::String(audioProcessor.getLoopLength(), 2)
@@ -219,6 +215,32 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     drawPanel({ 18.0f, 252.0f, static_cast<float>(getWidth() - 36), 43.0f });
     drawPanel({ 18.0f, 315.0f, static_cast<float>(getWidth() - 36), 58.0f });
 
+    const auto progressBounds = juce::Rectangle<float>(
+        100.0f, 190.0f, static_cast<float>(getWidth() - 200), 24.0f);
+    const auto progressAmount = static_cast<float>(
+        juce::jlimit(0.0, 1.0, loopProgress));
+
+    g.setColour(backgroundTop);
+    g.fillRoundedRectangle(progressBounds, 12.0f);
+
+    if (progressAmount > 0.0f)
+    {
+        auto filledBounds = progressBounds;
+        filledBounds.setWidth(progressBounds.getWidth() * progressAmount);
+        g.setColour(accentBlue);
+        g.fillRoundedRectangle(filledBounds, 12.0f);
+    }
+
+    const auto percentageBounds =
+        progressBounds.withSizeKeepingCentre(54.0f, 18.0f);
+    g.setColour(backgroundTop.withAlpha(0.82f));
+    g.fillRoundedRectangle(percentageBounds, 9.0f);
+    g.setColour(primaryText);
+    g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
+    g.drawText(juce::String(juce::roundToInt(progressAmount * 100.0f)) + "%",
+               percentageBounds,
+               juce::Justification::centred);
+
     g.setColour(accentBlue.withAlpha(0.7f));
     g.fillRoundedRectangle(300.0f, 52.0f, 100.0f, 2.0f, 1.0f);
 
@@ -255,7 +277,6 @@ void DinLooperAudioProcessorEditor::resized()
     resetButton.setBounds(x, y, buttonW, buttonH);
 
     progressLabel.setBounds(0, 160, getWidth(), 25);
-    loopProgressBar.setBounds(100, 190, getWidth() - 200, 24);
 
     triggerModeLabel.setBounds(90, 260, 110, 25);
     triggerModeBox.setBounds(205, 260, 150, 25);

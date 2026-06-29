@@ -39,7 +39,6 @@ private:
     juce::Label thresholdLabel;
 
     double loopProgress = 0.0;
-    juce::ProgressBar loopProgressBar{ loopProgress };
 
     juce::ComboBox triggerModeBox;
     juce::Slider thresholdSlider;
