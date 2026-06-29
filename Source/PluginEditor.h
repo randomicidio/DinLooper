@@ -14,10 +14,14 @@ public:
     void resized() override;
 
 private:
+    static constexpr int designWidth = 700;
+    static constexpr int designHeight = 520;
+
     void timerCallback() override;
     void updateLooperStatus();
 
     DinLooperAudioProcessor& audioProcessor;
+    juce::Component content;
 
     // ===== Botões =====
     juce::TextButton recButton{ "REC" };

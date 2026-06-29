@@ -20,15 +20,20 @@ namespace
 DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(700, 520);
+    setSize(designWidth, designHeight);
+    setResizable(true, true);
+    setResizeLimits(560, 416, 1050, 780);
+    getConstrainer()->setFixedAspectRatio(
+        static_cast<double>(designWidth) / designHeight);
     setOpaque(true);
+    addAndMakeVisible(content);
 
     // ===== Title =====
     titleLabel.setText("DinLooper", juce::dontSendNotification);
     titleLabel.setJustificationType(juce::Justification::centred);
     titleLabel.setFont(juce::Font(juce::FontOptions(27.0f, juce::Font::bold)));
     titleLabel.setColour(juce::Label::textColourId, primaryText);
-    addAndMakeVisible(titleLabel);
+    content.addAndMakeVisible(titleLabel);
 
     // ===== Status =====
     statusLabel.setText("IDLE", juce::dontSendNotification);
@@ -37,7 +42,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         juce::Font::getDefaultMonospacedFontName(),
         14.0f,
         juce::Font::bold)));
-    addAndMakeVisible(statusLabel);
+    content.addAndMakeVisible(statusLabel);
 
     // ===== Progress =====
     progressLabel.setText("LOOP POSITION", juce::dontSendNotification);
@@ -45,13 +50,13 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     progressLabel.setColour(juce::Label::textColourId, secondaryText);
     progressLabel.setFont(juce::Font(juce::FontOptions(12.0f,
                                                        juce::Font::bold)));
-    addAndMakeVisible(progressLabel);
+    content.addAndMakeVisible(progressLabel);
 
     // ===== Time =====
     timeLabel.setText("00.00 / 00.00", juce::dontSendNotification);
     timeLabel.setJustificationType(juce::Justification::centred);
     timeLabel.setColour(juce::Label::textColourId, primaryText);
-    addAndMakeVisible(timeLabel);
+    content.addAndMakeVisible(timeLabel);
 
     // ===== Layers =====
     layersLabel.setText("Layers: 0", juce::dontSendNotification);
@@ -59,13 +64,13 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     layersLabel.setColour(juce::Label::textColourId, primaryText);
     layersLabel.setFont(juce::Font(juce::FontOptions(16.0f,
                                                      juce::Font::bold)));
-    addAndMakeVisible(layersLabel);
+    content.addAndMakeVisible(layersLabel);
 
     // ===== Trigger =====
     triggerModeLabel.setText("Trigger", juce::dontSendNotification);
     triggerModeLabel.setJustificationType(juce::Justification::centredRight);
     triggerModeLabel.setColour(juce::Label::textColourId, secondaryText);
-    addAndMakeVisible(triggerModeLabel);
+    content.addAndMakeVisible(triggerModeLabel);
 
     triggerModeBox.addItem("Instant", 1);
     triggerModeBox.addItem("Audio + MIDI", 2);
@@ -76,7 +81,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     triggerModeBox.setColour(juce::ComboBox::textColourId, primaryText);
     triggerModeBox.setColour(juce::ComboBox::outlineColourId, panelBorder);
     triggerModeBox.setColour(juce::ComboBox::arrowColourId, accentBlue);
-    addAndMakeVisible(triggerModeBox);
+    content.addAndMakeVisible(triggerModeBox);
 
     thresholdLabel.setText("THRESHOLD", juce::dontSendNotification);
     thresholdLabel.setJustificationType(juce::Justification::centred);
@@ -95,9 +100,9 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
                               juce::Colours::transparentBlack);
     thresholdSlider.onValueChange = [this]
     {
-        repaint(18, 150, 82, 331);
+        repaint();
     };
-    addAndMakeVisible(thresholdSlider);
+    content.addAndMakeVisible(thresholdSlider);
 
     triggerModeAttachment =
         std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
@@ -110,7 +115,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     audioThruButton.setColour(juce::ToggleButton::tickColourId, accentBlue);
     audioThruButton.setColour(juce::ToggleButton::tickDisabledColourId,
                               secondaryText);
-    addAndMakeVisible(audioThruButton);
+    content.addAndMakeVisible(audioThruButton);
     audioThruAttachment =
         std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
             audioProcessor.getParameters(), "audio_thru", audioThruButton);
@@ -121,19 +126,19 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     inputMeterLabel.setColour(juce::Label::textColourId, secondaryText);
     inputMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
                                                         juce::Font::bold)));
-    addAndMakeVisible(inputMeterLabel);
+    content.addAndMakeVisible(inputMeterLabel);
 
     masterMeterLabel.setText("OUT", juce::dontSendNotification);
     masterMeterLabel.setJustificationType(juce::Justification::centred);
     masterMeterLabel.setColour(juce::Label::textColourId, secondaryText);
     masterMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
                                                          juce::Font::bold)));
-    addAndMakeVisible(masterMeterLabel);
+    content.addAndMakeVisible(masterMeterLabel);
 
     masterVolumeLabel.setText("VOLUME", juce::dontSendNotification);
     masterVolumeLabel.setJustificationType(juce::Justification::centred);
     masterVolumeLabel.setColour(juce::Label::textColourId, secondaryText);
-    addAndMakeVisible(masterVolumeLabel);
+    content.addAndMakeVisible(masterVolumeLabel);
 
     masterVolumeSlider.setSliderStyle(juce::Slider::LinearVertical);
     masterVolumeSlider.setTextBoxStyle(juce::Slider::TextBoxBelow,
@@ -151,7 +156,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
                                  backgroundTop);
     masterVolumeSlider.setColour(juce::Slider::textBoxOutlineColourId,
                                  panelBorder);
-    addAndMakeVisible(masterVolumeSlider);
+    content.addAndMakeVisible(masterVolumeSlider);
 
     masterVolumeAttachment =
         std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -160,14 +165,14 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
             masterVolumeSlider);
 
     // ===== Buttons =====
-    addAndMakeVisible(recButton);
-    addAndMakeVisible(playButton);
-    addAndMakeVisible(stopButton);
-    addAndMakeVisible(undoButton);
-    addAndMakeVisible(redoButton);
-    addAndMakeVisible(resetButton);
-    addAndMakeVisible(rewindButton);
-    addAndMakeVisible(recSustainButton);
+    content.addAndMakeVisible(recButton);
+    content.addAndMakeVisible(playButton);
+    content.addAndMakeVisible(stopButton);
+    content.addAndMakeVisible(undoButton);
+    content.addAndMakeVisible(redoButton);
+    content.addAndMakeVisible(resetButton);
+    content.addAndMakeVisible(rewindButton);
+    content.addAndMakeVisible(recSustainButton);
 
     const auto styleButton = [](juce::TextButton& button,
                                 juce::Colour colour)
@@ -230,12 +235,11 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
         statusColour = accentAmber;
 
     statusLabel.setColour(juce::Label::textColourId, statusColour);
-    repaint((getWidth() - 230) / 2, 57, 230, 26);
+    repaint();
     layersLabel.setText("Layers: " + juce::String(audioProcessor.getLayerCount()),
                         juce::dontSendNotification);
 
     loopProgress = audioProcessor.getProgress();
-    repaint(125, 190, 390, 24);
 
     for (int channel = 0; channel < 2; ++channel)
     {
@@ -252,8 +256,6 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
                        masterMeterDb[static_cast<size_t>(channel)] - 1.5f);
     }
 
-    repaint(18, 150, 82, 331);
-    repaint(getWidth() - 152, 150, 134, 331);
     timeLabel.setText(juce::String(audioProcessor.getCurrentTime(), 2)
                           + " / "
                           + juce::String(audioProcessor.getLoopLength(), 2)
@@ -270,12 +272,15 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
 //==============================================================================
 void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
 {
+    const auto scale = static_cast<float>(getWidth()) / designWidth;
+    g.addTransform(juce::AffineTransform::scale(scale));
+
     g.setGradientFill(juce::ColourGradient(backgroundTop,
                                            0.0f,
                                            0.0f,
                                            backgroundBottom,
                                            0.0f,
-                                           static_cast<float>(getHeight()),
+                                           static_cast<float>(designHeight),
                                            false));
     g.fillAll();
 
@@ -287,7 +292,7 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
         g.drawRoundedRectangle(bounds, 10.0f, 1.0f);
     };
 
-    drawPanel({ 18.0f, 86.0f, static_cast<float>(getWidth() - 36), 54.0f });
+    drawPanel({ 18.0f, 86.0f, static_cast<float>(designWidth - 36), 54.0f });
     drawPanel({ 105.0f, 150.0f, 430.0f, 96.0f });
     drawPanel({ 105.0f, 252.0f, 430.0f, 43.0f });
     drawPanel({ 105.0f, 305.0f, 430.0f, 176.0f });
@@ -295,7 +300,7 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     drawPanel({ 548.0f, 150.0f, 134.0f, 331.0f });
 
     const auto statusBounds = juce::Rectangle<float>(
-        static_cast<float>((getWidth() - 230) / 2),
+        static_cast<float>((designWidth - 230) / 2),
         57.0f,
         230.0f,
         26.0f);
@@ -419,22 +424,27 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("LIVE LOOP STATION",
                0,
                495,
-               getWidth(),
+               designWidth,
                16,
                juce::Justification::centred);
 }
 
 void DinLooperAudioProcessorEditor::resized()
 {
-    titleLabel.setBounds(0, 15, getWidth(), 35);
-    statusLabel.setBounds((getWidth() - 196) / 2 + 12, 57, 196, 26);
+    content.setTransform(juce::AffineTransform());
+    content.setBounds(0, 0, designWidth, designHeight);
+    const auto scale = static_cast<float>(getWidth()) / designWidth;
+    content.setTransform(juce::AffineTransform::scale(scale));
+
+    titleLabel.setBounds(0, 15, designWidth, 35);
+    statusLabel.setBounds((designWidth - 196) / 2 + 12, 57, 196, 26);
 
     const int buttonW = 76;
     const int buttonH = 35;
     const int gap = 6;
 
     int totalWidth = buttonW * 8 + gap * 7;
-    int x = (getWidth() - totalWidth) / 2;
+    int x = (designWidth - totalWidth) / 2;
     int y = 95;
 
     recButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
