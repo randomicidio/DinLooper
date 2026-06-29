@@ -519,6 +519,7 @@ void LooperEngine::pressRec()
             playbackPosition = 0;
             progress = 0.0f;
             loopLength = 0.0f;
+            nextLayerNumber = 1;
             undoHistorySize = 0;
             redoHistorySize = 0;
             layerBufferSlots.fill(-1);
