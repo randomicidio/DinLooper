@@ -238,7 +238,7 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                                       std::memory_order_acq_rel);
 
         if ((commandsBeforeFinish & recCommand) != 0)
-            looper.pressRec();
+            looper.pressRecWithEndCompensation(0.07);
     }
 
     processPendingCommands();
@@ -654,7 +654,11 @@ void DinLooperAudioProcessor::processPendingCommands()
     if ((commands & recCommand) != 0)
     {
         const auto wasIdle = looper.getState() == LooperEngine::State::Idle;
-        looper.pressRec();
+
+        if (looper.getState() == LooperEngine::State::RecordingFirstLoop)
+            looper.pressRecWithEndCompensation(0.07);
+        else
+            looper.pressRec();
 
         if (wasIdle && triggerModeParameter->load(std::memory_order_relaxed) < 0.5f)
             looper.triggerRecording();

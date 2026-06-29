@@ -187,6 +187,10 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
         std::array<float, maximumLayers> targetGains{};
         std::array<float, maximumLayers> gainSteps{};
         std::array<float, maximumLayers> blockPeaks{};
+        const auto boundaryFadeSamples = juce::jmin(
+            activeLoopLength / 2,
+            juce::jmax(1,
+                       juce::roundToInt(currentSampleRate * 0.001)));
 
         for (int layer = 0; layer < storedLayers; ++layer)
         {
@@ -253,6 +257,18 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
 
                     recordingLayer->addSample(channel, position, input);
                 }
+
+                const auto samplesFromStart = position - loopStart;
+                const auto samplesToEnd = loopEnd - position;
+                const auto fadeIn = juce::jmin(
+                    1.0f,
+                    static_cast<float>(samplesFromStart + 1)
+                        / static_cast<float>(boundaryFadeSamples));
+                const auto fadeOut = juce::jmin(
+                    1.0f,
+                    static_cast<float>(samplesToEnd)
+                        / static_cast<float>(boundaryFadeSamples));
+                mixedSample *= juce::jmin(fadeIn, fadeOut);
 
                 output[sample] = mixedSample;
 
@@ -731,6 +747,31 @@ void LooperEngine::pressRec()
 
     default:
         break;
+    }
+}
+
+void LooperEngine::pressRecWithEndCompensation(double seconds)
+{
+    const auto shouldCompensate =
+        currentState.load(std::memory_order_relaxed)
+            == State::RecordingFirstLoop
+        && recordedSamples > 1
+        && seconds > 0.0;
+
+    const auto samplesBeforeFinish = recordedSamples;
+    pressRec();
+
+    if (shouldCompensate
+        && currentState.load(std::memory_order_relaxed) == State::Playing)
+    {
+        const auto compensationSamples = juce::jlimit(
+            0,
+            samplesBeforeFinish - 1,
+            juce::roundToInt(currentSampleRate * seconds));
+        const auto compensatedEnd =
+            static_cast<float>(samplesBeforeFinish - compensationSamples)
+            / static_cast<float>(samplesBeforeFinish);
+        setCropRange(0.0f, compensatedEnd);
     }
 }
 

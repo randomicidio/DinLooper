@@ -26,6 +26,7 @@ public:
 
     // Botões
     void pressRec();
+    void pressRecWithEndCompensation(double seconds);
     void pressPlay();
     void pressStop();
     void pressCancel();
