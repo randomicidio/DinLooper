@@ -67,6 +67,7 @@ public:
     float getCropEnd() const;
     void setCropRange(float start, float end);
     void setPitchSemitones(float semitones);
+    void setPitchEnabled(bool enabled);
 
 private:
     void run() override;
@@ -154,6 +155,7 @@ private:
     std::atomic<int> allocationLengthSamples{ 0 };
     int preparedChannelCount = 0;
     juce::SmoothedValue<float> pitchSemitones;
+    std::atomic<bool> pitchEnabled{ false };
     double pitchGrainPhase = 0.0;
     int pitchWindowSamples = 2048;
 };

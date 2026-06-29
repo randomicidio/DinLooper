@@ -62,6 +62,7 @@ private:
 
     juce::ComboBox triggerModeBox;
     juce::ToggleButton audioThruButton{ "Audio Thru" };
+    juce::ToggleButton pitchEnabledButton{ "ON" };
     juce::Slider thresholdSlider;
     juce::Slider masterVolumeSlider;
     juce::Slider pitchSlider;
@@ -88,6 +89,8 @@ private:
         masterVolumeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         pitchAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+        pitchEnabledAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         recCompensationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>

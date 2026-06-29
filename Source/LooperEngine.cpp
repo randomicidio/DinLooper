@@ -229,7 +229,9 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
             const auto pitchRatio = std::pow(2.0,
                                              static_cast<double>(semitones)
                                                  / 12.0);
-            const auto usePitchShift = std::abs(semitones) > 0.001f;
+            const auto usePitchShift =
+                pitchEnabled.load(std::memory_order_relaxed)
+                && std::abs(semitones) > 0.001f;
             const auto phaseA = pitchGrainPhase;
             auto phaseB = phaseA + 0.5;
 
@@ -419,7 +421,17 @@ float LooperEngine::readLayerSample(
 
 void LooperEngine::setPitchSemitones(float semitones)
 {
-    pitchSemitones.setTargetValue(juce::jlimit(-12.0f, 12.0f, semitones));
+    const auto value = juce::jlimit(-12.0f, 12.0f, semitones);
+
+    if (pitchEnabled.load(std::memory_order_relaxed))
+        pitchSemitones.setTargetValue(value);
+    else
+        pitchSemitones.setCurrentAndTargetValue(value);
+}
+
+void LooperEngine::setPitchEnabled(bool enabled)
+{
+    pitchEnabled.store(enabled, std::memory_order_relaxed);
 }
 
 void LooperEngine::run()
