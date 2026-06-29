@@ -73,6 +73,15 @@ private:
         masterVolumeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
         audioThruAttachment;
+    std::array<
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>,
+        LooperEngine::maximumLayers> layerVolumeAttachments;
+    std::array<
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>,
+        LooperEngine::maximumLayers> layerMuteAttachments;
+    std::array<
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>,
+        LooperEngine::maximumLayers> layerSoloAttachments;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DinLooperAudioProcessorEditor)
 };

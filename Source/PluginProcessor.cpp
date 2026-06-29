@@ -23,6 +23,21 @@ namespace
     const juce::String thresholdParameterID   { "threshold_db" };
     const juce::String masterGainParameterID  { "master_gain_db" };
     const juce::String audioThruParameterID   { "audio_thru" };
+
+    juce::String layerVolumeParameterID(int layer)
+    {
+        return "layer_" + juce::String(layer + 1) + "_volume_db";
+    }
+
+    juce::String layerMuteParameterID(int layer)
+    {
+        return "layer_" + juce::String(layer + 1) + "_mute";
+    }
+
+    juce::String layerSoloParameterID(int layer)
+    {
+        return "layer_" + juce::String(layer + 1) + "_solo";
+    }
 }
 
 //==============================================================================
@@ -59,6 +74,21 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
     jassert(thresholdParameter != nullptr);
     jassert(masterGainParameter != nullptr);
     jassert(audioThruParameter != nullptr);
+
+    for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
+    {
+        const auto index = static_cast<size_t>(layer);
+        layerVolumeParameters[index] =
+            parameters.getRawParameterValue(layerVolumeParameterID(layer));
+        layerMuteParameters[index] =
+            parameters.getRawParameterValue(layerMuteParameterID(layer));
+        layerSoloParameters[index] =
+            parameters.getRawParameterValue(layerSoloParameterID(layer));
+
+        jassert(layerVolumeParameters[index] != nullptr);
+        jassert(layerMuteParameters[index] != nullptr);
+        jassert(layerSoloParameters[index] != nullptr);
+    }
 }
 
 DinLooperAudioProcessor::~DinLooperAudioProcessor()
@@ -212,6 +242,26 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     processPendingCommands();
+
+    for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
+    {
+        const auto index = static_cast<size_t>(layer);
+        looper.setLayerVolume(
+            layer,
+            juce::Decibels::decibelsToGain(
+                layerVolumeParameters[index]->load(
+                    std::memory_order_relaxed),
+                -60.0f));
+        looper.setLayerMuted(
+            layer,
+            layerMuteParameters[index]->load(
+                std::memory_order_relaxed) >= 0.5f);
+        looper.setLayerSoloed(
+            layer,
+            layerSoloParameters[index]->load(
+                std::memory_order_relaxed) >= 0.5f);
+    }
+
     const auto triggerSample = findInputTriggerSample(buffer, midiMessages);
     const auto sustainStopSample = findSustainPedalSample(midiMessages);
 
@@ -262,15 +312,17 @@ juce::AudioProcessorEditor* DinLooperAudioProcessor::createEditor()
 //==============================================================================
 void DinLooperAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    if (auto state = parameters.copyState().createXml())
+        copyXmlToBinary(*state, destData);
 }
 
 void DinLooperAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    if (auto state = getXmlFromBinary(data, sizeInBytes))
+    {
+        if (state->hasTagName(parameters.state.getType()))
+            parameters.replaceState(juce::ValueTree::fromXml(*state));
+    }
 }
 
 //==============================================================================
@@ -463,6 +515,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         juce::ParameterID { audioThruParameterID, 1 },
         "Audio Thru",
         false));
+
+    for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
+    {
+        auto volumeRange =
+            juce::NormalisableRange<float> { -60.0f, 6.0f, 0.1f };
+        volumeRange.setSkewForCentre(-12.0f);
+        const auto layerName = "Layer " + juce::String(layer + 1);
+
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID { layerVolumeParameterID(layer), 1 },
+            layerName + " Volume",
+            volumeRange,
+            0.0f,
+            juce::AudioParameterFloatAttributes().withLabel("dB")));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID { layerMuteParameterID(layer), 1 },
+            layerName + " Mute",
+            false));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID { layerSoloParameterID(layer), 1 },
+            layerName + " Solo",
+            false));
+    }
 
     return layout;
 }

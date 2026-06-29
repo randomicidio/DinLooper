@@ -14,6 +14,11 @@ namespace
     const auto accentGreen = juce::Colour::fromRGB(65, 205, 140);
     const auto accentAmber = juce::Colour::fromRGB(244, 176, 74);
     const auto accentPurple = juce::Colour::fromRGB(177, 116, 255);
+
+    juce::String layerParameterID(int layer, const juce::String& suffix)
+    {
+        return "layer_" + juce::String(layer + 1) + "_" + suffix;
+    }
 }
 
 //==============================================================================
@@ -208,42 +213,18 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         volume.setColour(juce::Slider::textBoxBackgroundColourId,
                          backgroundTop);
         volume.setColour(juce::Slider::textBoxOutlineColourId, panelBorder);
-        volume.onValueChange = [this, layer]
-        {
-            audioProcessor.setLayerVolume(
-                layer,
-                juce::Decibels::decibelsToGain(
-                    static_cast<float>(
-                        layerVolumeSliders[static_cast<size_t>(layer)]
-                            .getValue()),
-                    -60.0f));
-        };
         layerControls.addAndMakeVisible(volume);
 
         auto& mute = layerMuteButtons[static_cast<size_t>(layer)];
         mute.setButtonText("M");
         mute.setColour(juce::ToggleButton::textColourId, primaryText);
         mute.setColour(juce::ToggleButton::tickColourId, accentAmber);
-        mute.onClick = [this, layer]
-        {
-            audioProcessor.setLayerMuted(
-                layer,
-                layerMuteButtons[static_cast<size_t>(layer)]
-                    .getToggleState());
-        };
         layerControls.addAndMakeVisible(mute);
 
         auto& solo = layerSoloButtons[static_cast<size_t>(layer)];
         solo.setButtonText("S");
         solo.setColour(juce::ToggleButton::textColourId, primaryText);
         solo.setColour(juce::ToggleButton::tickColourId, accentGreen);
-        solo.onClick = [this, layer]
-        {
-            audioProcessor.setLayerSoloed(
-                layer,
-                layerSoloButtons[static_cast<size_t>(layer)]
-                    .getToggleState());
-        };
         layerControls.addAndMakeVisible(solo);
 
         auto& remove = layerDeleteButtons[static_cast<size_t>(layer)];
@@ -256,6 +237,26 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
             audioProcessor.deleteLayer(layer);
         };
         layerControls.addAndMakeVisible(remove);
+
+        const auto index = static_cast<size_t>(layer);
+        layerVolumeAttachments[index] =
+            std::make_unique<
+                juce::AudioProcessorValueTreeState::SliderAttachment>(
+                audioProcessor.getParameters(),
+                layerParameterID(layer, "volume_db"),
+                volume);
+        layerMuteAttachments[index] =
+            std::make_unique<
+                juce::AudioProcessorValueTreeState::ButtonAttachment>(
+                audioProcessor.getParameters(),
+                layerParameterID(layer, "mute"),
+                mute);
+        layerSoloAttachments[index] =
+            std::make_unique<
+                juce::AudioProcessorValueTreeState::ButtonAttachment>(
+                audioProcessor.getParameters(),
+                layerParameterID(layer, "solo"),
+                solo);
     }
 
     // ===== Buttons =====
@@ -403,16 +404,6 @@ void DinLooperAudioProcessorEditor::updateLayerControls()
             juce::jmax(peak, layerMeterLevels[index] * 0.82f);
         layerMeters[index].setValue(layerMeterLevels[index],
                                     juce::dontSendNotification);
-        layerVolumeSliders[index].setValue(
-            juce::Decibels::gainToDecibels(
-                audioProcessor.getLayerVolume(layer), -60.0f),
-            juce::dontSendNotification);
-        layerMuteButtons[index].setToggleState(
-            audioProcessor.isLayerMuted(layer),
-            juce::dontSendNotification);
-        layerSoloButtons[index].setToggleState(
-            audioProcessor.isLayerSoloed(layer),
-            juce::dontSendNotification);
         ++visibleRow;
     }
 

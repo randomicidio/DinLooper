@@ -118,6 +118,12 @@ private:
     std::atomic<float>* thresholdParameter = nullptr;
     std::atomic<float>* masterGainParameter = nullptr;
     std::atomic<float>* audioThruParameter = nullptr;
+    std::array<std::atomic<float>*, LooperEngine::maximumLayers>
+        layerVolumeParameters{};
+    std::array<std::atomic<float>*, LooperEngine::maximumLayers>
+        layerMuteParameters{};
+    std::array<std::atomic<float>*, LooperEngine::maximumLayers>
+        layerSoloParameters{};
     juce::SmoothedValue<float> masterGain;
     juce::AudioBuffer<float> audioThruBuffer;
     std::array<std::atomic<float>, 2> inputPeaks{};
