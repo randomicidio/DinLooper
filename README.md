@@ -122,7 +122,7 @@ interface de áudio, controlador e projeto do REAPER.
 
 ## Versão atual
 
-[DinLooper v1.0.0 Alpha 2](https://github.com/randomicidio/DinLooper/releases/tag/v1.0.0-alpha.2)
+[DinLooper v1.0.0 Alpha 3](https://github.com/randomicidio/DinLooper/releases/tag/v1.0.0-alpha.3)
 
 ## Desenvolvimento
 
