@@ -317,11 +317,29 @@ void DinLooperAudioProcessorEditor::timerCallback()
 void DinLooperAudioProcessorEditor::updateLooperStatus()
 {
     const auto stateName = audioProcessor.getStateName();
-    statusLabel.setText(stateName, juce::dontSendNotification);
+    const auto now = juce::Time::getMillisecondCounter();
+
+    if (audioProcessor.consumeMaximumLayersNotice())
+        maximumLayersNoticeUntil = now + 3000u;
+
+    const auto showMaximumLayersNotice =
+        static_cast<std::int32_t>(maximumLayersNoticeUntil - now) > 0;
+
+    statusLabel.setText(
+        showMaximumLayersNotice
+            ? "MAXIMUM NUMBER OF LAYERS REACHED (16)"
+            : stateName,
+        juce::dontSendNotification);
+    statusLabel.setFont(juce::Font(juce::FontOptions(
+        juce::Font::getDefaultMonospacedFontName(),
+        showMaximumLayersNotice ? 11.0f : 14.0f,
+        juce::Font::bold)));
 
     auto statusColour = secondaryText;
 
-    if (stateName.contains("RECORD") || stateName.contains("SUSTAIN"))
+    if (showMaximumLayersNotice)
+        statusColour = accentAmber;
+    else if (stateName.contains("RECORD") || stateName.contains("SUSTAIN"))
         statusColour = accentRed;
     else if (stateName.contains("OVERDUB"))
         statusColour = accentPurple;
@@ -445,9 +463,9 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     drawPanel({ 548.0f, 150.0f, 134.0f, 331.0f });
 
     const auto statusBounds = juce::Rectangle<float>(
-        static_cast<float>((designWidth - 230) / 2),
+        static_cast<float>((designWidth - 400) / 2),
         57.0f,
-        230.0f,
+        400.0f,
         26.0f);
     const auto statusColour =
         statusLabel.findColour(juce::Label::textColourId);
@@ -582,7 +600,7 @@ void DinLooperAudioProcessorEditor::resized()
     content.setTransform(juce::AffineTransform::scale(scale));
 
     titleLabel.setBounds(0, 15, designWidth, 35);
-    statusLabel.setBounds((designWidth - 196) / 2 + 12, 57, 196, 26);
+    statusLabel.setBounds((designWidth - 366) / 2 + 12, 57, 366, 26);
 
     const int buttonW = 76;
     const int buttonH = 35;

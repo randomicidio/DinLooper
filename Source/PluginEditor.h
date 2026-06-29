@@ -47,6 +47,7 @@ private:
     juce::Label masterVolumeLabel;
 
     double loopProgress = 0.0;
+    std::uint32_t maximumLayersNoticeUntil = 0;
 
     juce::ComboBox triggerModeBox;
     juce::ToggleButton audioThruButton{ "Audio Thru" };

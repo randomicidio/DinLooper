@@ -47,6 +47,7 @@ public:
     bool isLayerMuted(int layer) const;
     bool isLayerSoloed(int layer) const;
     float consumeLayerPeak(int layer);
+    bool consumeMaximumLayersNotice();
     void setLayerVolume(int layer, float gain);
     void setLayerMuted(int layer, bool muted);
     void setLayerSoloed(int layer, bool soloed);
@@ -109,6 +110,7 @@ private:
     int undoHistorySize = 0;
     int redoHistorySize = 0;
     std::atomic<unsigned int> pendingLayerDeletes{ 0 };
+    std::atomic<bool> maximumLayersNotice{ false };
     int nextLayerNumber = 1;
 
     double currentSampleRate = 44100.0;

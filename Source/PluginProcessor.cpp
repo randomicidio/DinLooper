@@ -416,6 +416,11 @@ float DinLooperAudioProcessor::consumeLayerPeak(int layer)
     return looper.consumeLayerPeak(layer);
 }
 
+bool DinLooperAudioProcessor::consumeMaximumLayersNotice()
+{
+    return looper.consumeMaximumLayersNotice();
+}
+
 void DinLooperAudioProcessor::setLayerVolume(int layer, float gain)
 {
     looper.setLayerVolume(layer, gain);

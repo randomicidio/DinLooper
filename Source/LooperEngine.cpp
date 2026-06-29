@@ -71,6 +71,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     undoHistorySize = 0;
     redoHistorySize = 0;
     pendingLayerDeletes = 0;
+    maximumLayersNotice = false;
     nextLayerNumber = 1;
     layerCount = 0;
     progress = 0.0f;
@@ -588,6 +589,10 @@ void LooperEngine::pressRec()
             overdubStartRequested = true;
             startPendingOverdubIfReady();
         }
+        else
+        {
+            maximumLayersNotice = true;
+        }
 
         break;
     }
@@ -811,6 +816,7 @@ void LooperEngine::pressReset()
     undoHistorySize = 0;
     redoHistorySize = 0;
     pendingLayerDeletes = 0;
+    maximumLayersNotice = false;
     nextLayerNumber = 1;
 
     progress = 0.0f;
@@ -905,6 +911,11 @@ float LooperEngine::consumeLayerPeak(int layer)
         return 0.0f;
 
     return layerPeaks[layer].exchange(0.0f, std::memory_order_acq_rel);
+}
+
+bool LooperEngine::consumeMaximumLayersNotice()
+{
+    return maximumLayersNotice.exchange(false, std::memory_order_acq_rel);
 }
 
 void LooperEngine::setLayerVolume(int layer, float gain)
