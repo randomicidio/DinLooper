@@ -781,7 +781,12 @@ void LooperEngine::pressRecSustain()
 
     if (state == State::RecordingFirstLoop || state == State::Overdubbing)
     {
-        sustainFinishRequested = true;
+        const auto wasAlreadyWaiting =
+            sustainFinishRequested.exchange(true, std::memory_order_acq_rel);
+
+        if (wasAlreadyWaiting)
+            pressRec();
+
         return;
     }
 
