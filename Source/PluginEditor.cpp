@@ -261,7 +261,8 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
 
     // ===== Buttons =====
     content.addAndMakeVisible(recButton);
-    content.addAndMakeVisible(playStopButton);
+    content.addAndMakeVisible(playButton);
+    content.addAndMakeVisible(stopButton);
     content.addAndMakeVisible(cancelButton);
     content.addAndMakeVisible(undoButton);
     content.addAndMakeVisible(redoButton);
@@ -282,7 +283,8 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
 
     styleButton(recButton, accentRed);
     styleButton(recSustainButton, accentPurple);
-    styleButton(playStopButton, accentGreen);
+    styleButton(playButton, accentGreen);
+    styleButton(stopButton, accentAmber);
     styleButton(cancelButton, accentRed);
     styleButton(rewindButton, accentBlue);
     styleButton(undoButton, accentBlue);
@@ -290,7 +292,8 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     styleButton(resetButton, juce::Colour::fromRGB(102, 116, 139));
 
     recButton.onClick = [this] { audioProcessor.pressRec(); };
-    playStopButton.onClick = [this] { audioProcessor.pressPlayStop(); };
+    playButton.onClick = [this] { audioProcessor.pressPlay(); };
+    stopButton.onClick = [this] { audioProcessor.pressStop(); };
     cancelButton.onClick = [this] { audioProcessor.pressCancel(); };
     undoButton.onClick = [this] { audioProcessor.pressUndo(); };
     redoButton.onClick = [this] { audioProcessor.pressRedo(); };
@@ -352,15 +355,15 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
     statusLabel.setColour(juce::Label::textColourId, statusColour);
 
     const auto waiting = state == LooperEngine::State::WaitingForInput;
-    const auto stopped = state == LooperEngine::State::Stopped;
-    const auto idle = state == LooperEngine::State::Idle;
-    playStopButton.setButtonText(waiting ? "CANCEL"
-                                         : (stopped || idle ? "PLAY" : "STOP"));
-    const auto playStopColour = stopped || idle ? accentGreen : accentAmber;
-    playStopButton.setColour(juce::TextButton::buttonColourId,
-                             playStopColour.withMultipliedBrightness(0.55f));
-    playStopButton.setColour(juce::TextButton::buttonOnColourId,
-                             playStopColour);
+    const auto recording = state == LooperEngine::State::RecordingFirstLoop
+                           || state == LooperEngine::State::Overdubbing;
+    recButton.setButtonText(recording ? "FINISH"
+                                     : (waiting ? "ARMED" : "REC"));
+    recButton.setColour(
+        juce::TextButton::buttonColourId,
+        recording ? accentRed : accentRed.withMultipliedBrightness(
+                                        waiting ? 0.75f : 0.55f));
+    recButton.setColour(juce::TextButton::buttonOnColourId, accentRed);
     repaint();
     layersLabel.setText("Layers: " + juce::String(audioProcessor.getLayerCount()),
                         juce::dontSendNotification);
@@ -614,17 +617,18 @@ void DinLooperAudioProcessorEditor::resized()
     titleLabel.setBounds(0, 15, designWidth, 35);
     statusLabel.setBounds((designWidth - 366) / 2 + 12, 57, 366, 26);
 
-    const int buttonW = 76;
+    const int buttonW = 68;
     const int buttonH = 35;
-    const int gap = 6;
+    const int gap = 5;
 
-    int totalWidth = buttonW * 8 + gap * 7;
+    int totalWidth = buttonW * 9 + gap * 8;
     int x = (designWidth - totalWidth) / 2;
     int y = 95;
 
     recButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     recSustainButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
-    playStopButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
+    playButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
+    stopButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     cancelButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     rewindButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     undoButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
