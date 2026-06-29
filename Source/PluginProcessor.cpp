@@ -225,6 +225,24 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 {
     juce::ScopedNoDenormals noDenormals;
     const auto numSamples = buffer.getNumSamples();
+
+    const auto stateAtBlockStart = looper.getState();
+    const auto isRecording =
+        stateAtBlockStart == LooperEngine::State::RecordingFirstLoop
+        || stateAtBlockStart == LooperEngine::State::Overdubbing;
+
+    if (isRecording)
+    {
+        const auto commandsBeforeFinish =
+            pendingCommands.fetch_and(~static_cast<unsigned int>(recCommand),
+                                      std::memory_order_acq_rel);
+
+        if ((commandsBeforeFinish & recCommand) != 0)
+            looper.pressRec();
+    }
+
+    processPendingCommands();
+
     const auto audioThruEnabled =
         audioThruParameter->load(std::memory_order_relaxed) >= 0.5f;
 
@@ -243,8 +261,6 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             : 0.0f;
         publishPeak(inputPeaks[static_cast<size_t>(channel)], peak);
     }
-
-    processPendingCommands();
 
     for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
     {
