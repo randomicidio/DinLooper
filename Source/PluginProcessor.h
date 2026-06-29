@@ -77,6 +77,8 @@ public:
     float getCurrentTime() const;
 
     juce::AudioProcessorValueTreeState& getParameters();
+    float consumeInputPeak(int channel);
+    float consumeMasterPeak(int channel);
 
 private:
     enum Command : unsigned int
@@ -99,10 +101,15 @@ private:
     int findInputTriggerSample(const juce::AudioBuffer<float>&,
                                const juce::MidiBuffer&) const;
     int findSustainPedalSample(const juce::MidiBuffer&) const;
+    static void publishPeak(std::atomic<float>& destination, float peak);
 
     juce::AudioProcessorValueTreeState parameters;
     std::atomic<float>* triggerModeParameter = nullptr;
     std::atomic<float>* thresholdParameter = nullptr;
+    std::atomic<float>* masterGainParameter = nullptr;
+    juce::SmoothedValue<float> masterGain;
+    std::array<std::atomic<float>, 2> inputPeaks{};
+    std::array<std::atomic<float>, 2> masterPeaks{};
     std::atomic<unsigned int> pendingCommands{ 0 };
 
     LooperEngine looper;

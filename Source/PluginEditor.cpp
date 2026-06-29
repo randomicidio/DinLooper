@@ -20,7 +20,7 @@ namespace
 DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(700, 420);
+    setSize(700, 520);
     setOpaque(true);
 
     // ===== Title =====
@@ -104,6 +104,50 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             audioProcessor.getParameters(), "threshold_db", thresholdSlider);
 
+    // ===== Metering and master volume =====
+    inputMeterLabel.setText("INPUT LEVEL", juce::dontSendNotification);
+    inputMeterLabel.setJustificationType(juce::Justification::centred);
+    inputMeterLabel.setColour(juce::Label::textColourId, secondaryText);
+    inputMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
+                                                        juce::Font::bold)));
+    addAndMakeVisible(inputMeterLabel);
+
+    masterMeterLabel.setText("MASTER OUTPUT", juce::dontSendNotification);
+    masterMeterLabel.setJustificationType(juce::Justification::centred);
+    masterMeterLabel.setColour(juce::Label::textColourId, secondaryText);
+    masterMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
+                                                         juce::Font::bold)));
+    addAndMakeVisible(masterMeterLabel);
+
+    masterVolumeLabel.setText("MASTER VOLUME", juce::dontSendNotification);
+    masterVolumeLabel.setJustificationType(juce::Justification::centred);
+    masterVolumeLabel.setColour(juce::Label::textColourId, secondaryText);
+    addAndMakeVisible(masterVolumeLabel);
+
+    masterVolumeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    masterVolumeSlider.setTextBoxStyle(juce::Slider::TextBoxRight,
+                                       false,
+                                       68,
+                                       22);
+    masterVolumeSlider.setTextValueSuffix(" dB");
+    masterVolumeSlider.setColour(juce::Slider::backgroundColourId,
+                                 backgroundTop);
+    masterVolumeSlider.setColour(juce::Slider::trackColourId, accentGreen);
+    masterVolumeSlider.setColour(juce::Slider::thumbColourId, primaryText);
+    masterVolumeSlider.setColour(juce::Slider::textBoxTextColourId,
+                                 primaryText);
+    masterVolumeSlider.setColour(juce::Slider::textBoxBackgroundColourId,
+                                 backgroundTop);
+    masterVolumeSlider.setColour(juce::Slider::textBoxOutlineColourId,
+                                 panelBorder);
+    addAndMakeVisible(masterVolumeSlider);
+
+    masterVolumeAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            audioProcessor.getParameters(),
+            "master_gain_db",
+            masterVolumeSlider);
+
     // ===== Buttons =====
     addAndMakeVisible(recButton);
     addAndMakeVisible(playButton);
@@ -181,6 +225,23 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
 
     loopProgress = audioProcessor.getProgress();
     repaint(100, 190, getWidth() - 200, 24);
+
+    for (int channel = 0; channel < 2; ++channel)
+    {
+        const auto inputPeakDb = juce::Decibels::gainToDecibels(
+            audioProcessor.consumeInputPeak(channel), -60.0f);
+        const auto masterPeakDb = juce::Decibels::gainToDecibels(
+            audioProcessor.consumeMasterPeak(channel), -60.0f);
+
+        inputMeterDb[static_cast<size_t>(channel)] =
+            juce::jmax(inputPeakDb,
+                       inputMeterDb[static_cast<size_t>(channel)] - 1.5f);
+        masterMeterDb[static_cast<size_t>(channel)] =
+            juce::jmax(masterPeakDb,
+                       masterMeterDb[static_cast<size_t>(channel)] - 1.5f);
+    }
+
+    repaint(18, 302, getWidth() - 36, 112);
     timeLabel.setText(juce::String(audioProcessor.getCurrentTime(), 2)
                           + " / "
                           + juce::String(audioProcessor.getLoopLength(), 2)
@@ -217,7 +278,8 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     drawPanel({ 18.0f, 86.0f, static_cast<float>(getWidth() - 36), 54.0f });
     drawPanel({ 18.0f, 150.0f, static_cast<float>(getWidth() - 36), 96.0f });
     drawPanel({ 18.0f, 252.0f, static_cast<float>(getWidth() - 36), 43.0f });
-    drawPanel({ 18.0f, 315.0f, static_cast<float>(getWidth() - 36), 58.0f });
+    drawPanel({ 18.0f, 305.0f, static_cast<float>(getWidth() - 36), 110.0f });
+    drawPanel({ 18.0f, 423.0f, static_cast<float>(getWidth() - 36), 58.0f });
 
     const auto statusBounds = juce::Rectangle<float>(
         static_cast<float>((getWidth() - 230) / 2),
@@ -270,6 +332,61 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
                percentageBounds,
                juce::Justification::centred);
 
+    const auto drawMeter = [&g](float x,
+                                float y,
+                                float width,
+                                float levelDb,
+                                const juce::String& channelName)
+    {
+        const auto normalisedLevel = juce::jlimit(
+            0.0f, 1.0f, (levelDb + 60.0f) / 60.0f);
+        const auto barBounds = juce::Rectangle<float>(x + 18.0f,
+                                                       y,
+                                                       width,
+                                                       14.0f);
+
+        g.setColour(secondaryText);
+        g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+        g.drawText(channelName,
+                   static_cast<int>(x),
+                   static_cast<int>(y),
+                   14,
+                   14,
+                   juce::Justification::centred);
+
+        g.setColour(backgroundTop);
+        g.fillRoundedRectangle(barBounds, 7.0f);
+
+        auto meterColour = accentGreen;
+
+        if (levelDb > -3.0f)
+            meterColour = accentRed;
+        else if (levelDb > -12.0f)
+            meterColour = accentAmber;
+
+        if (normalisedLevel > 0.0f)
+        {
+            auto levelBounds = barBounds;
+            levelBounds.setWidth(barBounds.getWidth() * normalisedLevel);
+            g.setColour(meterColour);
+            g.fillRoundedRectangle(levelBounds, 7.0f);
+        }
+
+        g.setColour(levelDb > -0.1f ? accentRed : primaryText);
+        g.setFont(juce::Font(juce::FontOptions(10.0f)));
+        g.drawText(juce::String(levelDb, 1) + " dB",
+                   static_cast<int>(x + width + 25.0f),
+                   static_cast<int>(y),
+                   52,
+                   14,
+                   juce::Justification::centredRight);
+    };
+
+    drawMeter(34.0f, 339.0f, 130.0f, inputMeterDb[0], "L");
+    drawMeter(34.0f, 365.0f, 130.0f, inputMeterDb[1], "R");
+    drawMeter(254.0f, 339.0f, 130.0f, masterMeterDb[0], "L");
+    drawMeter(254.0f, 365.0f, 130.0f, masterMeterDb[1], "R");
+
     g.setColour(accentBlue.withAlpha(0.7f));
     g.fillRoundedRectangle(300.0f, 52.0f, 100.0f, 2.0f, 1.0f);
 
@@ -277,7 +394,7 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
     g.drawText("LIVE LOOP STATION",
                0,
-               390,
+               495,
                getWidth(),
                16,
                juce::Justification::centred);
@@ -314,5 +431,10 @@ void DinLooperAudioProcessorEditor::resized()
 
     timeLabel.setBounds(0, 220, getWidth(), 25);
 
-    layersLabel.setBounds(0, 330, getWidth(), 25);
+    inputMeterLabel.setBounds(34, 312, 205, 18);
+    masterMeterLabel.setBounds(254, 312, 205, 18);
+    masterVolumeLabel.setBounds(470, 312, 190, 18);
+    masterVolumeSlider.setBounds(475, 350, 180, 28);
+
+    layersLabel.setBounds(0, 440, getWidth(), 25);
 }

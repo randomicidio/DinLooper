@@ -21,6 +21,7 @@ namespace
     const juce::String recSustainParameterID { "rec_sustain" };
     const juce::String triggerModeParameterID { "trigger_mode" };
     const juce::String thresholdParameterID   { "threshold_db" };
+    const juce::String masterGainParameterID  { "master_gain_db" };
 }
 
 //==============================================================================
@@ -50,9 +51,11 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
 
     triggerModeParameter = parameters.getRawParameterValue(triggerModeParameterID);
     thresholdParameter = parameters.getRawParameterValue(thresholdParameterID);
+    masterGainParameter = parameters.getRawParameterValue(masterGainParameterID);
 
     jassert(triggerModeParameter != nullptr);
     jassert(thresholdParameter != nullptr);
+    jassert(masterGainParameter != nullptr);
 }
 
 DinLooperAudioProcessor::~DinLooperAudioProcessor()
@@ -134,6 +137,15 @@ void DinLooperAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 {
     juce::ignoreUnused(samplesPerBlock);
     looper.prepareToPlay(sampleRate, getTotalNumInputChannels());
+    masterGain.reset(sampleRate, 0.02);
+    masterGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(
+        masterGainParameter->load(std::memory_order_relaxed)));
+
+    for (auto& peak : inputPeaks)
+        peak = 0.0f;
+
+    for (auto& peak : masterPeaks)
+        peak = 0.0f;
 }
 
 void DinLooperAudioProcessor::releaseResources()
@@ -171,6 +183,16 @@ bool DinLooperAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+    const auto numSamples = buffer.getNumSamples();
+
+    for (int channel = 0; channel < 2; ++channel)
+    {
+        const auto peak = channel < buffer.getNumChannels()
+            ? buffer.getMagnitude(channel, 0, numSamples)
+            : 0.0f;
+        publishPeak(inputPeaks[static_cast<size_t>(channel)], peak);
+    }
+
     processPendingCommands();
     const auto triggerSample = findInputTriggerSample(buffer, midiMessages);
     const auto sustainStopSample = findSustainPedalSample(midiMessages);
@@ -181,6 +203,19 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     looper.processBlock(buffer,
                         juce::jmax(0, triggerSample),
                         sustainStopSample);
+
+    masterGain.setTargetValue(juce::Decibels::decibelsToGain(
+        masterGainParameter->load(std::memory_order_relaxed)));
+    masterGain.applyGain(buffer, numSamples);
+
+    for (int channel = 0; channel < 2; ++channel)
+    {
+        const auto peak = channel < buffer.getNumChannels()
+            ? buffer.getMagnitude(channel, 0, numSamples)
+            : 0.0f;
+        publishPeak(masterPeaks[static_cast<size_t>(channel)], peak);
+    }
+
     midiMessages.clear();
 }
 
@@ -285,6 +320,18 @@ juce::AudioProcessorValueTreeState& DinLooperAudioProcessor::getParameters()
     return parameters;
 }
 
+float DinLooperAudioProcessor::consumeInputPeak(int channel)
+{
+    return inputPeaks[static_cast<size_t>(juce::jlimit(0, 1, channel))]
+        .exchange(0.0f, std::memory_order_acq_rel);
+}
+
+float DinLooperAudioProcessor::consumeMasterPeak(int channel)
+{
+    return masterPeaks[static_cast<size_t>(juce::jlimit(0, 1, channel))]
+        .exchange(0.0f, std::memory_order_acq_rel);
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -322,6 +369,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         "Audio Threshold",
         juce::NormalisableRange<float> { -60.0f, 0.0f, 0.1f },
         -36.0f,
+        juce::AudioParameterFloatAttributes().withLabel("dB")));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { masterGainParameterID, 1 },
+        "Master Volume",
+        juce::NormalisableRange<float> { -60.0f, 6.0f, 0.1f },
+        0.0f,
         juce::AudioParameterFloatAttributes().withLabel("dB")));
 
     return layout;
@@ -454,6 +507,20 @@ int DinLooperAudioProcessor::findSustainPedalSample(
     }
 
     return -1;
+}
+
+void DinLooperAudioProcessor::publishPeak(std::atomic<float>& destination,
+                                          float peak)
+{
+    auto currentPeak = destination.load(std::memory_order_relaxed);
+
+    while (peak > currentPeak
+           && !destination.compare_exchange_weak(currentPeak,
+                                                 peak,
+                                                 std::memory_order_release,
+                                                 std::memory_order_relaxed))
+    {
+    }
 }
 
 //==============================================================================

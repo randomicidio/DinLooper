@@ -37,16 +37,25 @@ private:
     juce::Label layersLabel;
     juce::Label triggerModeLabel;
     juce::Label thresholdLabel;
+    juce::Label inputMeterLabel;
+    juce::Label masterMeterLabel;
+    juce::Label masterVolumeLabel;
 
     double loopProgress = 0.0;
 
     juce::ComboBox triggerModeBox;
     juce::Slider thresholdSlider;
+    juce::Slider masterVolumeSlider;
+
+    std::array<float, 2> inputMeterDb{ -60.0f, -60.0f };
+    std::array<float, 2> masterMeterDb{ -60.0f, -60.0f };
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
         triggerModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         thresholdAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        masterVolumeAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DinLooperAudioProcessorEditor)
 };
