@@ -370,6 +370,10 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
 
     loopProgress = audioProcessor.getProgress();
 
+    for (int point = 0; point < waveformPoints; ++point)
+        waveformPeaks[static_cast<size_t>(point)] =
+            audioProcessor.getWaveformPeak(point);
+
     for (int channel = 0; channel < 2; ++channel)
     {
         const auto inputPeakDb = juce::Decibels::gainToDecibels(
@@ -510,13 +514,49 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(backgroundTop);
     g.fillRoundedRectangle(progressBounds, 12.0f);
 
+    juce::Path waveformPath;
+    const auto waveformCentre = progressBounds.getCentreY();
+    const auto maximumHalfHeight = progressBounds.getHeight() * 0.42f;
+
+    for (int point = 0; point < waveformPoints; ++point)
+    {
+        const auto x = progressBounds.getX()
+                       + (static_cast<float>(point) + 0.5f)
+                             * progressBounds.getWidth()
+                             / static_cast<float>(waveformPoints);
+        const auto visualPeak = std::sqrt(juce::jlimit(
+            0.0f, 1.0f,
+            waveformPeaks[static_cast<size_t>(point)]));
+        const auto halfHeight = juce::jmax(0.6f,
+                                           visualPeak * maximumHalfHeight);
+        waveformPath.startNewSubPath(x, waveformCentre - halfHeight);
+        waveformPath.lineTo(x, waveformCentre + halfHeight);
+    }
+
+    g.setColour(secondaryText.withAlpha(0.42f));
+    g.strokePath(waveformPath,
+                 juce::PathStrokeType(1.2f,
+                                      juce::PathStrokeType::curved,
+                                      juce::PathStrokeType::rounded));
+
     if (progressAmount > 0.0f)
     {
-        auto filledBounds = progressBounds;
-        filledBounds.setWidth(progressBounds.getWidth() * progressAmount);
+        juce::Graphics::ScopedSaveState saveState(g);
+        g.reduceClipRegion(progressBounds.withWidth(
+            progressBounds.getWidth() * progressAmount).toNearestInt());
         g.setColour(accentBlue);
-        g.fillRoundedRectangle(filledBounds, 12.0f);
+        g.strokePath(waveformPath,
+                     juce::PathStrokeType(1.4f,
+                                          juce::PathStrokeType::curved,
+                                          juce::PathStrokeType::rounded));
     }
+
+    const auto playheadX = progressBounds.getX()
+                           + progressBounds.getWidth() * progressAmount;
+    g.setColour(primaryText.withAlpha(0.75f));
+    g.drawVerticalLine(juce::roundToInt(playheadX),
+                       progressBounds.getY() + 2.0f,
+                       progressBounds.getBottom() - 2.0f);
 
     const auto percentageBounds =
         progressBounds.withSizeKeepingCentre(54.0f, 18.0f);

@@ -80,6 +80,7 @@ public:
     bool isLayerSoloed(int layer) const;
     float consumeLayerPeak(int layer);
     bool consumeMaximumLayersNotice();
+    float getWaveformPeak(int index) const;
     void setLayerVolume(int layer, float gain);
     void setLayerMuted(int layer, bool muted);
     void setLayerSoloed(int layer, bool soloed);

@@ -49,6 +49,7 @@ public:
     bool isLayerSoloed(int layer) const;
     float consumeLayerPeak(int layer);
     bool consumeMaximumLayersNotice();
+    float getWaveformPeak(int index) const;
     void setLayerVolume(int layer, float gain);
     void setLayerMuted(int layer, bool muted);
     void setLayerSoloed(int layer, bool soloed);
@@ -72,6 +73,8 @@ private:
     void pushHistory(int layer, bool activated);
     void discardHistoryForLayer(int layer);
     void processPendingLayerDeletes();
+    void requestWaveformBuild();
+    void clearWaveform();
     static void publishPeak(std::atomic<float>& destination, float peak);
 
 public:
@@ -79,6 +82,7 @@ public:
 
 private:
     static constexpr int maximumBufferSlots = maximumLayers + 2;
+    static constexpr int waveformPoints = 256;
 
     struct LayerAction
     {
@@ -112,6 +116,10 @@ private:
     int redoHistorySize = 0;
     std::atomic<unsigned int> pendingLayerDeletes{ 0 };
     std::atomic<bool> maximumLayersNotice{ false };
+    std::array<std::atomic<float>, waveformPoints> waveformPeaks{};
+    std::atomic<int> waveformSampleCount{ 0 };
+    std::atomic<bool> waveformBuildRequested{ false };
+    std::atomic<unsigned int> waveformGeneration{ 0 };
     int nextLayerNumber = 1;
 
     double currentSampleRate = 44100.0;

@@ -73,6 +73,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     pendingLayerDeletes = 0;
     maximumLayersNotice = false;
     nextLayerNumber = 1;
+    clearWaveform();
     layerCount = 0;
     progress = 0.0f;
     loopLength = 0.0f;
@@ -142,6 +143,7 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
             layerNumbers[0] = nextLayerNumber++;
             activateLayer(0);
             pushHistory(0, true);
+            requestWaveformBuild();
             playbackPosition = 0;
             progress = 0.0f;
             currentState = State::Playing;
@@ -285,6 +287,56 @@ void LooperEngine::run()
 {
     while (!threadShouldExit())
     {
+        if (waveformBuildRequested.exchange(false,
+                                            std::memory_order_acq_rel))
+        {
+            const auto generation =
+                waveformGeneration.load(std::memory_order_acquire);
+            const auto samples =
+                waveformSampleCount.load(std::memory_order_acquire);
+            auto* firstLayer =
+                readyLayerBuffers[0].load(std::memory_order_acquire);
+
+            if (firstLayer != nullptr && samples > 0)
+            {
+                for (int point = 0; point < waveformPoints; ++point)
+                {
+                    if (waveformGeneration.load(std::memory_order_acquire)
+                        != generation)
+                    {
+                        break;
+                    }
+
+                    const auto startSample = static_cast<int>(
+                        static_cast<int64_t>(point) * samples
+                        / waveformPoints);
+                    const auto endSample = static_cast<int>(
+                        static_cast<int64_t>(point + 1) * samples
+                        / waveformPoints);
+                    const auto samplesInPoint =
+                        juce::jmax(1, endSample - startSample);
+                    float peak = 0.0f;
+
+                    for (int channel = 0;
+                         channel < firstLayer->getNumChannels();
+                         ++channel)
+                    {
+                        peak = juce::jmax(
+                            peak,
+                            firstLayer->getMagnitude(channel,
+                                                     startSample,
+                                                     samplesInPoint));
+                    }
+
+                    waveformPeaks[static_cast<size_t>(point)].store(
+                        juce::jlimit(0.0f, 1.0f, peak),
+                        std::memory_order_release);
+                }
+            }
+
+            continue;
+        }
+
         auto layer = requestedLayerIndex.load(std::memory_order_acquire);
 
         if (layer > 0 && layer < maximumBufferSlots)
@@ -520,6 +572,7 @@ void LooperEngine::pressRec()
             progress = 0.0f;
             loopLength = 0.0f;
             nextLayerNumber = 1;
+            clearWaveform();
             undoHistorySize = 0;
             redoHistorySize = 0;
             layerBufferSlots.fill(-1);
@@ -554,6 +607,7 @@ void LooperEngine::pressRec()
             layerNumbers[0] = nextLayerNumber++;
             activateLayer(0);
             pushHistory(0, true);
+            requestWaveformBuild();
             playbackPosition = 0;
             progress = 0.0f;
             requestNextLayerBuffer();
@@ -861,6 +915,7 @@ void LooperEngine::pressReset()
     pendingLayerDeletes = 0;
     maximumLayersNotice = false;
     nextLayerNumber = 1;
+    clearWaveform();
 
     progress = 0.0f;
     loopLength = 0.0f;
@@ -959,6 +1014,32 @@ float LooperEngine::consumeLayerPeak(int layer)
 bool LooperEngine::consumeMaximumLayersNotice()
 {
     return maximumLayersNotice.exchange(false, std::memory_order_acq_rel);
+}
+
+float LooperEngine::getWaveformPeak(int index) const
+{
+    if (index < 0 || index >= waveformPoints)
+        return 0.0f;
+
+    return waveformPeaks[static_cast<size_t>(index)].load(
+        std::memory_order_acquire);
+}
+
+void LooperEngine::requestWaveformBuild()
+{
+    waveformSampleCount.store(recordedSamples, std::memory_order_release);
+    waveformBuildRequested.store(true, std::memory_order_release);
+    notify();
+}
+
+void LooperEngine::clearWaveform()
+{
+    waveformGeneration.fetch_add(1, std::memory_order_acq_rel);
+    waveformSampleCount.store(0, std::memory_order_release);
+    waveformBuildRequested.store(false, std::memory_order_release);
+
+    for (auto& peak : waveformPeaks)
+        peak.store(0.0f, std::memory_order_release);
 }
 
 void LooperEngine::setLayerVolume(int layer, float gain)

@@ -16,6 +16,7 @@ public:
 private:
     static constexpr int designWidth = 700;
     static constexpr int designHeight = 520;
+    static constexpr int waveformPoints = 256;
 
     void timerCallback() override;
     void updateLooperStatus();
@@ -66,6 +67,7 @@ private:
 
     std::array<float, 2> inputMeterDb{ -60.0f, -60.0f };
     std::array<float, 2> masterMeterDb{ -60.0f, -60.0f };
+    std::array<float, waveformPoints> waveformPeaks{};
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
         triggerModeAttachment;
