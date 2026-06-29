@@ -27,8 +27,6 @@ namespace
     const juce::String recCompensationParameterID {
         "rec_compensation_ms"
     };
-    const juce::String pitchParameterID { "pitch_semitones" };
-    const juce::String pitchEnabledParameterID { "pitch_enabled" };
 
     juce::String layerVolumeParameterID(int layer)
     {
@@ -78,17 +76,12 @@ DinLooperAudioProcessor::DinLooperAudioProcessor()
     audioThruParameter = parameters.getRawParameterValue(audioThruParameterID);
     recCompensationParameter =
         parameters.getRawParameterValue(recCompensationParameterID);
-    pitchParameter = parameters.getRawParameterValue(pitchParameterID);
-    pitchEnabledParameter =
-        parameters.getRawParameterValue(pitchEnabledParameterID);
 
     jassert(triggerModeParameter != nullptr);
     jassert(thresholdParameter != nullptr);
     jassert(masterGainParameter != nullptr);
     jassert(audioThruParameter != nullptr);
     jassert(recCompensationParameter != nullptr);
-    jassert(pitchParameter != nullptr);
-    jassert(pitchEnabledParameter != nullptr);
 
     for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
     {
@@ -295,11 +288,6 @@ void DinLooperAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             layerSoloParameters[index]->load(
                 std::memory_order_relaxed) >= 0.5f);
     }
-
-    looper.setPitchEnabled(
-        pitchEnabledParameter->load(std::memory_order_relaxed) >= 0.5f);
-    looper.setPitchSemitones(
-        pitchParameter->load(std::memory_order_relaxed));
 
     const auto triggerSample = findInputTriggerSample(buffer, midiMessages);
     const auto sustainStopSample = findSustainPedalSample(midiMessages);
@@ -595,17 +583,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DinLooperAudioProcessor::cre
         juce::NormalisableRange<float> { 0.0f, 250.0f, 1.0f },
         70.0f,
         juce::AudioParameterFloatAttributes().withLabel("ms")));
-    layout.add(std::make_unique<juce::AudioParameterInt>(
-        juce::ParameterID { pitchParameterID, 1 },
-        "Pitch",
-        -12,
-        12,
-        0,
-        juce::AudioParameterIntAttributes().withLabel("st")));
-    layout.add(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID { pitchEnabledParameterID, 1 },
-        "Transpose",
-        false));
 
     for (int layer = 0; layer < LooperEngine::maximumLayers; ++layer)
     {

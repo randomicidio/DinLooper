@@ -50,7 +50,6 @@ private:
     juce::Label inputMeterLabel;
     juce::Label masterMeterLabel;
     juce::Label masterVolumeLabel;
-    juce::Label pitchLabel;
     juce::Label recCompensationLabel;
 
     double loopProgress = 0.0;
@@ -62,10 +61,8 @@ private:
 
     juce::ComboBox triggerModeBox;
     juce::ToggleButton audioThruButton{ "Audio Thru" };
-    juce::ToggleButton pitchEnabledButton{ "ON" };
     juce::Slider thresholdSlider;
     juce::Slider masterVolumeSlider;
-    juce::Slider pitchSlider;
     juce::Slider recCompensationSlider;
     juce::Viewport layerViewport;
     juce::Component layerControls;
@@ -87,10 +84,6 @@ private:
         thresholdAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         masterVolumeAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-        pitchAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
-        pitchEnabledAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         recCompensationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>

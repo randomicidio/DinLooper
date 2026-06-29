@@ -41,11 +41,6 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
         buffer.reset();
 
     currentSampleRate = sampleRate;
-    pitchWindowSamples = juce::jmax(
-        256, juce::roundToInt(currentSampleRate * 0.04));
-    pitchGrainPhase = 0.0;
-    pitchSemitones.reset(currentSampleRate, 0.02);
-    pitchSemitones.setCurrentAndTargetValue(0.0f);
     preparedChannelCount = juce::jmax(1, numChannels);
     maximumLoopSamples = juce::roundToInt(sampleRate * maximumLoopSeconds);
 
@@ -212,49 +207,13 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
                 / static_cast<float>(juce::jmax(1, numSamples));
         }
 
-        std::array<float*, 2> outputs{};
-        for (int channel = 0;
-             channel < juce::jmin(2, buffer.getNumChannels());
-             ++channel)
-            outputs[static_cast<size_t>(channel)] =
-                buffer.getWritePointer(channel);
-
-        for (int sample = 0; sample < numSamples; ++sample)
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
-            const auto position =
-                loopStart
-                + ((playbackPosition - loopStart + sample)
-                   % activeLoopLength);
-            const auto semitones = pitchSemitones.getNextValue();
-            const auto pitchRatio = std::pow(2.0,
-                                             static_cast<double>(semitones)
-                                                 / 12.0);
-            const auto usePitchShift =
-                pitchEnabled.load(std::memory_order_relaxed)
-                && std::abs(semitones) > 0.001f;
-            const auto phaseA = pitchGrainPhase;
-            auto phaseB = phaseA + 0.5;
+            auto* output = buffer.getWritePointer(channel);
+            auto position = playbackPosition;
 
-            if (phaseB >= 1.0)
-                phaseB -= 1.0;
-
-            const auto weightA =
-                std::sin(juce::MathConstants<double>::pi * phaseA);
-            const auto weightB =
-                std::sin(juce::MathConstants<double>::pi * phaseB);
-            const auto grainOffsetScale =
-                (pitchRatio - 1.0)
-                * static_cast<double>(pitchWindowSamples);
-            const auto readPositionA =
-                static_cast<double>(position) + grainOffsetScale * phaseA;
-            const auto readPositionB =
-                static_cast<double>(position) + grainOffsetScale * phaseB;
-
-            for (int channel = 0;
-                 channel < juce::jmin(2, buffer.getNumChannels());
-                 ++channel)
+            for (int sample = 0; sample < numSamples; ++sample)
             {
-                auto* output = outputs[static_cast<size_t>(channel)];
                 const auto input = output[sample];
                 float mixedSample = 0.0f;
 
@@ -273,25 +232,9 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
                                     currentLayerGains[layer]
                                     + gainSteps[layer]
                                           * static_cast<float>(sample + 1);
-                                const auto unpitchedSample =
-                                    layerBuffer->getSample(channel, position);
-                                const auto shiftedSample = usePitchShift
-                                    ? readLayerSample(*layerBuffer,
-                                                      channel,
-                                                      readPositionA,
-                                                      loopStart,
-                                                      activeLoopLength)
-                                          * static_cast<float>(weightA
-                                                               * weightA)
-                                      + readLayerSample(*layerBuffer,
-                                                        channel,
-                                                        readPositionB,
-                                                        loopStart,
-                                                        activeLoopLength)
-                                          * static_cast<float>(weightB
-                                                               * weightB)
-                                    : unpitchedSample;
-                                const auto layerSample = shiftedSample * gain;
+                                const auto layerSample =
+                                    layerBuffer->getSample(channel, position)
+                                    * gain;
                                 mixedSample += layerSample;
                                 blockPeaks[layer] =
                                     juce::jmax(blockPeaks[layer],
@@ -310,25 +253,7 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
                         overdubSamplesWritten + sample >= activeLoopLength;
 
                     if (positionWasRecorded)
-                    {
-                        const auto canPitchRecordedPass =
-                            overdubSamplesWritten
-                                >= activeLoopLength + pitchWindowSamples;
-                        mixedSample += usePitchShift && canPitchRecordedPass
-                            ? readLayerSample(*recordingLayer,
-                                              channel,
-                                              readPositionA,
-                                              loopStart,
-                                              activeLoopLength)
-                                  * static_cast<float>(weightA * weightA)
-                              + readLayerSample(*recordingLayer,
-                                                channel,
-                                                readPositionB,
-                                                loopStart,
-                                                activeLoopLength)
-                                  * static_cast<float>(weightB * weightB)
-                            : recordingLayer->getSample(channel, position);
-                    }
+                        mixedSample += recordingLayer->getSample(channel, position);
 
                     recordingLayer->addSample(channel, position, input);
                 }
@@ -346,12 +271,10 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
                 mixedSample *= juce::jmin(fadeIn, fadeOut);
 
                 output[sample] = mixedSample;
-            }
 
-            pitchGrainPhase += 1.0
-                               / static_cast<double>(pitchWindowSamples);
-            if (pitchGrainPhase >= 1.0)
-                pitchGrainPhase -= 1.0;
+                if (++position >= loopEnd)
+                    position = loopStart;
+            }
         }
 
         for (int layer = 0; layer < storedLayers; ++layer)
@@ -388,50 +311,6 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
     }
 
     buffer.clear();
-}
-
-float LooperEngine::readLayerSample(
-    const juce::AudioBuffer<float>& buffer,
-    int channel,
-    double position,
-    int loopStart,
-    int activeLength) const
-{
-    auto relativePosition =
-        std::fmod(position - static_cast<double>(loopStart),
-                  static_cast<double>(activeLength));
-
-    if (relativePosition < 0.0)
-        relativePosition += static_cast<double>(activeLength);
-
-    const auto wrappedPosition =
-        static_cast<double>(loopStart) + relativePosition;
-    const auto firstSample = static_cast<int>(std::floor(wrappedPosition));
-    auto secondSample = firstSample + 1;
-
-    if (secondSample >= loopStart + activeLength)
-        secondSample = loopStart;
-
-    const auto fraction =
-        static_cast<float>(wrappedPosition - static_cast<double>(firstSample));
-    return juce::jmap(fraction,
-                      buffer.getSample(channel, firstSample),
-                      buffer.getSample(channel, secondSample));
-}
-
-void LooperEngine::setPitchSemitones(float semitones)
-{
-    const auto value = juce::jlimit(-12.0f, 12.0f, semitones);
-
-    if (pitchEnabled.load(std::memory_order_relaxed))
-        pitchSemitones.setTargetValue(value);
-    else
-        pitchSemitones.setCurrentAndTargetValue(value);
-}
-
-void LooperEngine::setPitchEnabled(bool enabled)
-{
-    pitchEnabled.store(enabled, std::memory_order_relaxed);
 }
 
 void LooperEngine::run()

@@ -78,24 +78,10 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         content.addAndMakeVisible(slider);
     };
 
-    configureTopControl(pitchLabel, pitchSlider, "PITCH", " st");
     configureTopControl(recCompensationLabel,
                         recCompensationSlider,
                         "REC COMP",
                         " ms");
-    pitchAttachment =
-        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-            audioProcessor.getParameters(), "pitch_semitones", pitchSlider);
-    pitchEnabledButton.setColour(juce::ToggleButton::textColourId,
-                                 primaryText);
-    pitchEnabledButton.setColour(juce::ToggleButton::tickColourId,
-                                 accentBlue);
-    content.addAndMakeVisible(pitchEnabledButton);
-    pitchEnabledAttachment =
-        std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-            audioProcessor.getParameters(),
-            "pitch_enabled",
-            pitchEnabledButton);
     recCompensationAttachment =
         std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             audioProcessor.getParameters(),
@@ -825,9 +811,6 @@ void DinLooperAudioProcessorEditor::resized()
 
     titleLabel.setBounds(0, 15, designWidth, 35);
     statusLabel.setBounds((designWidth - 366) / 2 + 12, 57, 366, 26);
-    pitchLabel.setBounds(18, 48, 145, 12);
-    pitchSlider.setBounds(18, 60, 105, 22);
-    pitchEnabledButton.setBounds(125, 59, 42, 24);
     recCompensationLabel.setBounds(570, 48, 112, 12);
     recCompensationSlider.setBounds(570, 60, 112, 22);
 
