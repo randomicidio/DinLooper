@@ -32,6 +32,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
         static_cast<double>(designWidth) / designHeight);
     setOpaque(true);
     addAndMakeVisible(content);
+    content.setInterceptsMouseClicks(false, true);
 
     // ===== Title =====
     titleLabel.setText("DinLooper", juce::dontSendNotification);
@@ -370,6 +371,12 @@ void DinLooperAudioProcessorEditor::updateLooperStatus()
 
     loopProgress = audioProcessor.getProgress();
 
+    if (draggedCropHandle == CropHandle::none)
+    {
+        cropStart = audioProcessor.getCropStart();
+        cropEnd = audioProcessor.getCropEnd();
+    }
+
     for (int point = 0; point < waveformPoints; ++point)
         waveformPeaks[static_cast<size_t>(point)] =
             audioProcessor.getWaveformPeak(point);
@@ -516,6 +523,12 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
         || looperState == LooperEngine::State::Overdubbing;
     const auto waveformAccent =
         waveformIsRecording ? accentRed : accentBlue;
+    const auto cropStartX =
+        progressBounds.getX() + progressBounds.getWidth() * cropStart;
+    const auto cropEndX =
+        progressBounds.getX() + progressBounds.getWidth() * cropEnd;
+    const auto playheadAmount =
+        cropStart + (cropEnd - cropStart) * progressAmount;
 
     g.setColour(backgroundTop);
     g.fillRoundedRectangle(progressBounds, 12.0f);
@@ -548,8 +561,12 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     if (progressAmount > 0.0f)
     {
         juce::Graphics::ScopedSaveState saveState(g);
-        g.reduceClipRegion(progressBounds.withWidth(
-            progressBounds.getWidth() * progressAmount).toNearestInt());
+        g.reduceClipRegion(juce::Rectangle<float>(
+            cropStartX,
+            progressBounds.getY(),
+            progressBounds.getWidth()
+                * (playheadAmount - cropStart),
+            progressBounds.getHeight()).toNearestInt());
         g.setColour(waveformAccent);
         g.strokePath(waveformPath,
                      juce::PathStrokeType(1.4f,
@@ -557,14 +574,44 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
                                           juce::PathStrokeType::rounded));
     }
 
-    const auto playheadX = progressBounds.getX()
-                           + progressBounds.getWidth() * progressAmount;
+    g.setColour(juce::Colours::black.withAlpha(0.58f));
+    g.fillRect(juce::Rectangle<float>(
+        progressBounds.getX(),
+        progressBounds.getY(),
+        juce::jmax(0.0f, cropStartX - progressBounds.getX()),
+        progressBounds.getHeight()));
+    g.fillRect(juce::Rectangle<float>(
+        cropEndX,
+        progressBounds.getY(),
+        juce::jmax(0.0f, progressBounds.getRight() - cropEndX),
+        progressBounds.getHeight()));
+
+    const auto playheadX =
+        progressBounds.getX() + progressBounds.getWidth() * playheadAmount;
     g.setColour(waveformIsRecording
                     ? accentRed.brighter(0.25f)
                     : primaryText.withAlpha(0.75f));
     g.drawVerticalLine(juce::roundToInt(playheadX),
                        progressBounds.getY() + 2.0f,
                        progressBounds.getBottom() - 2.0f);
+
+    const auto drawCropHandle = [&g, &progressBounds](float x)
+    {
+        g.setColour(primaryText);
+        g.fillRoundedRectangle(x - 2.0f,
+                               progressBounds.getY() - 2.0f,
+                               4.0f,
+                               progressBounds.getHeight() + 4.0f,
+                               2.0f);
+        juce::Path marker;
+        marker.addTriangle(x - 5.0f, progressBounds.getY() - 3.0f,
+                           x + 5.0f, progressBounds.getY() - 3.0f,
+                           x, progressBounds.getY() + 3.0f);
+        g.fillPath(marker);
+    };
+
+    drawCropHandle(cropStartX);
+    drawCropHandle(cropEndX);
 
     const auto percentageBounds =
         progressBounds.withSizeKeepingCentre(54.0f, 18.0f);
@@ -653,6 +700,68 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
                designWidth,
                16,
                juce::Justification::centred);
+}
+
+void DinLooperAudioProcessorEditor::mouseDown(
+    const juce::MouseEvent& event)
+{
+    const auto state = audioProcessor.getState();
+
+    if (audioProcessor.getLayerCount() == 0
+        || state == LooperEngine::State::RecordingFirstLoop
+        || state == LooperEngine::State::Overdubbing)
+    {
+        return;
+    }
+
+    const auto scale = static_cast<float>(getWidth()) / designWidth;
+    const auto position = event.position / scale;
+
+    if (position.y < 184.0f || position.y > 220.0f)
+        return;
+
+    constexpr float waveformX = 125.0f;
+    constexpr float waveformWidth = 390.0f;
+    const auto startX = waveformX + waveformWidth * cropStart;
+    const auto endX = waveformX + waveformWidth * cropEnd;
+    const auto distanceToStart = std::abs(position.x - startX);
+    const auto distanceToEnd = std::abs(position.x - endX);
+
+    if (distanceToStart <= 10.0f || distanceToEnd <= 10.0f)
+        draggedCropHandle = distanceToStart <= distanceToEnd
+            ? CropHandle::start
+            : CropHandle::end;
+}
+
+void DinLooperAudioProcessorEditor::mouseDrag(
+    const juce::MouseEvent& event)
+{
+    if (draggedCropHandle == CropHandle::none)
+        return;
+
+    constexpr float waveformX = 125.0f;
+    constexpr float waveformWidth = 390.0f;
+    constexpr float minimumCropLength = 0.001f;
+    const auto scale = static_cast<float>(getWidth()) / designWidth;
+    const auto designX = event.position.x / scale;
+    const auto normalisedPosition = juce::jlimit(
+        0.0f, 1.0f, (designX - waveformX) / waveformWidth);
+
+    if (draggedCropHandle == CropHandle::start)
+        cropStart = juce::jmin(normalisedPosition,
+                               cropEnd - minimumCropLength);
+    else
+        cropEnd = juce::jmax(normalisedPosition,
+                             cropStart + minimumCropLength);
+
+    audioProcessor.setCropRange(cropStart, cropEnd);
+    repaint();
+}
+
+void DinLooperAudioProcessorEditor::mouseUp(
+    const juce::MouseEvent&)
+{
+    draggedCropHandle = CropHandle::none;
 }
 
 void DinLooperAudioProcessorEditor::resized()

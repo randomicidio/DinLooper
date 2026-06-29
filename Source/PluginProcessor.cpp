@@ -485,6 +485,21 @@ float DinLooperAudioProcessor::getCurrentTime() const
     return looper.getCurrentTime();
 }
 
+float DinLooperAudioProcessor::getCropStart() const
+{
+    return looper.getCropStart();
+}
+
+float DinLooperAudioProcessor::getCropEnd() const
+{
+    return looper.getCropEnd();
+}
+
+void DinLooperAudioProcessor::setCropRange(float start, float end)
+{
+    looper.setCropRange(start, end);
+}
+
 juce::AudioProcessorValueTreeState& DinLooperAudioProcessor::getParameters()
 {
     return parameters;

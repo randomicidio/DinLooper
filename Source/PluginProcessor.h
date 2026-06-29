@@ -89,6 +89,9 @@ public:
     float getProgress() const;
     float getLoopLength() const;
     float getCurrentTime() const;
+    float getCropStart() const;
+    float getCropEnd() const;
+    void setCropRange(float start, float end);
 
     juce::AudioProcessorValueTreeState& getParameters();
     float consumeInputPeak(int channel);

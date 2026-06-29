@@ -12,6 +12,9 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
 
 private:
     static constexpr int designWidth = 700;
@@ -49,6 +52,10 @@ private:
     juce::Label masterVolumeLabel;
 
     double loopProgress = 0.0;
+    float cropStart = 0.0f;
+    float cropEnd = 1.0f;
+    enum class CropHandle { none, start, end };
+    CropHandle draggedCropHandle = CropHandle::none;
     std::uint32_t maximumLayersNoticeUntil = 0;
 
     juce::ComboBox triggerModeBox;

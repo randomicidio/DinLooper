@@ -74,6 +74,7 @@ void LooperEngine::prepareToPlay(double sampleRate, int numChannels)
     maximumLayersNotice = false;
     nextLayerNumber = 1;
     clearWaveform();
+    resetCropRange();
     layerCount = 0;
     progress = 0.0f;
     loopLength = 0.0f;
@@ -141,6 +142,7 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
             applyBoundaryFade(*firstLayer, recordedSamples);
             storedLayerCount = 1;
             layerNumbers[0] = nextLayerNumber++;
+            resetCropRange();
             activateLayer(0);
             pushHistory(0, true);
             requestWaveformBuild();
@@ -161,6 +163,13 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
     if ((state == State::Playing || state == State::Overdubbing)
         && recordedSamples > 0)
     {
+        const auto loopStart = getActiveLoopStart();
+        const auto loopEnd = getActiveLoopEnd();
+        const auto activeLoopLength = getActiveLoopLength();
+
+        if (playbackPosition < loopStart || playbackPosition >= loopEnd)
+            playbackPosition = loopStart;
+
         const auto storedLayers =
             storedLayerCount.load(std::memory_order_relaxed);
         const auto blockPlaybackStart = playbackPosition;
@@ -237,7 +246,7 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
                     && sample < stopSample)
                 {
                     const auto positionWasRecorded =
-                        overdubSamplesWritten + sample >= recordedSamples;
+                        overdubSamplesWritten + sample >= activeLoopLength;
 
                     if (positionWasRecorded)
                         mixedSample += recordingLayer->getSample(channel, position);
@@ -247,8 +256,8 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
 
                 output[sample] = mixedSample;
 
-                if (++position >= recordedSamples)
-                    position = 0;
+                if (++position >= loopEnd)
+                    position = loopStart;
             }
         }
 
@@ -261,20 +270,25 @@ void LooperEngine::processBlock(juce::AudioBuffer<float>& buffer,
         if (state == State::Overdubbing)
             overdubSamplesWritten += stopSample;
 
-        playbackPosition = (playbackPosition + numSamples) % recordedSamples;
-        progress = static_cast<float>(playbackPosition)
-                   / static_cast<float>(recordedSamples);
+        playbackPosition =
+            loopStart
+            + ((playbackPosition - loopStart + numSamples)
+               % activeLoopLength);
+        progress = static_cast<float>(playbackPosition - loopStart)
+                   / static_cast<float>(activeLoopLength);
 
         if (state == State::Overdubbing && hasRecordingStop)
         {
             const auto continuingPlaybackPosition = playbackPosition;
-            playbackPosition = (blockPlaybackStart + stopSample)
-                               % recordedSamples;
+            playbackPosition =
+                loopStart
+                + ((blockPlaybackStart - loopStart + stopSample)
+                   % activeLoopLength);
             sustainFinishRequested = false;
             pressRec();
             playbackPosition = continuingPlaybackPosition;
-            progress = static_cast<float>(playbackPosition)
-                       / static_cast<float>(recordedSamples);
+            progress = static_cast<float>(playbackPosition - loopStart)
+                       / static_cast<float>(activeLoopLength);
         }
 
         return;
@@ -573,6 +587,7 @@ void LooperEngine::pressRec()
             loopLength = 0.0f;
             nextLayerNumber = 1;
             clearWaveform();
+            resetCropRange();
             undoHistorySize = 0;
             redoHistorySize = 0;
             layerBufferSlots.fill(-1);
@@ -605,6 +620,7 @@ void LooperEngine::pressRec()
             currentState = State::Playing;
             storedLayerCount = 1;
             layerNumbers[0] = nextLayerNumber++;
+            resetCropRange();
             activateLayer(0);
             pushHistory(0, true);
             requestWaveformBuild();
@@ -665,9 +681,13 @@ void LooperEngine::pressRec()
             {
                 for (int sample = 0; sample < fadeSamples; ++sample)
                 {
-                    const auto position = (playbackPosition - 1 - sample
-                                           + recordedSamples)
-                                          % recordedSamples;
+                    const auto loopStart = getActiveLoopStart();
+                    const auto activeLoopLength = getActiveLoopLength();
+                    const auto position =
+                        loopStart
+                        + ((playbackPosition - loopStart - 1 - sample
+                            + activeLoopLength * 2)
+                           % activeLoopLength);
                     const auto gain = static_cast<float>(sample)
                                       / static_cast<float>(fadeSamples);
                     layer->setSample(channel,
@@ -916,6 +936,7 @@ void LooperEngine::pressReset()
     maximumLayersNotice = false;
     nextLayerNumber = 1;
     clearWaveform();
+    resetCropRange();
 
     progress = 0.0f;
     loopLength = 0.0f;
@@ -956,7 +977,7 @@ void LooperEngine::pressRewind()
     if (recordedSamples > 0
         && (state == State::Playing || state == State::Stopped))
     {
-        playbackPosition = 0;
+        playbackPosition = getActiveLoopStart();
         progress = 0.0f;
     }
 }
@@ -1175,6 +1196,17 @@ void LooperEngine::setProgress(float p)
 
 float LooperEngine::getLoopLength() const
 {
+    if (loopLength.load(std::memory_order_acquire) > 0.0f
+        && currentState.load(std::memory_order_acquire)
+               != State::RecordingFirstLoop)
+    {
+        const auto cropLength =
+            cropEnd.load(std::memory_order_acquire)
+            - cropStart.load(std::memory_order_acquire);
+        return loopLength.load(std::memory_order_acquire)
+               * juce::jlimit(0.0f, 1.0f, cropLength);
+    }
+
     return loopLength.load(std::memory_order_acquire);
 }
 
@@ -1188,11 +1220,65 @@ float LooperEngine::getCurrentTime() const
     if (currentState.load(std::memory_order_acquire) == State::RecordingFirstLoop)
         return loopLength.load(std::memory_order_acquire);
 
-    return progress.load(std::memory_order_acquire)
-           * loopLength.load(std::memory_order_acquire);
+    return progress.load(std::memory_order_acquire) * getLoopLength();
 }
 
 bool LooperEngine::isWaitingForSustain() const
 {
     return sustainFinishRequested.load(std::memory_order_acquire);
+}
+
+float LooperEngine::getCropStart() const
+{
+    return cropStart.load(std::memory_order_acquire);
+}
+
+float LooperEngine::getCropEnd() const
+{
+    return cropEnd.load(std::memory_order_acquire);
+}
+
+void LooperEngine::setCropRange(float start, float end)
+{
+    constexpr float minimumNormalisedLength = 0.001f;
+    start = juce::jlimit(0.0f, 1.0f - minimumNormalisedLength, start);
+    end = juce::jlimit(start + minimumNormalisedLength, 1.0f, end);
+    cropStart.store(start, std::memory_order_release);
+    cropEnd.store(end, std::memory_order_release);
+}
+
+int LooperEngine::getActiveLoopStart() const
+{
+    if (recordedSamples <= 0)
+        return 0;
+
+    return juce::jlimit(
+        0,
+        recordedSamples - 1,
+        juce::roundToInt(cropStart.load(std::memory_order_acquire)
+                         * static_cast<float>(recordedSamples)));
+}
+
+int LooperEngine::getActiveLoopEnd() const
+{
+    if (recordedSamples <= 0)
+        return 0;
+
+    const auto start = getActiveLoopStart();
+    return juce::jlimit(
+        start + 1,
+        recordedSamples,
+        juce::roundToInt(cropEnd.load(std::memory_order_acquire)
+                         * static_cast<float>(recordedSamples)));
+}
+
+int LooperEngine::getActiveLoopLength() const
+{
+    return juce::jmax(1, getActiveLoopEnd() - getActiveLoopStart());
+}
+
+void LooperEngine::resetCropRange()
+{
+    cropStart.store(0.0f, std::memory_order_release);
+    cropEnd.store(1.0f, std::memory_order_release);
 }

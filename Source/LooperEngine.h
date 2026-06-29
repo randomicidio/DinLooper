@@ -62,6 +62,9 @@ public:
     void setLoopLength(float seconds);
     float getCurrentTime() const;
     bool isWaitingForSustain() const;
+    float getCropStart() const;
+    float getCropEnd() const;
+    void setCropRange(float start, float end);
 
 private:
     void run() override;
@@ -75,6 +78,10 @@ private:
     void processPendingLayerDeletes();
     void requestWaveformBuild();
     void clearWaveform();
+    int getActiveLoopStart() const;
+    int getActiveLoopEnd() const;
+    int getActiveLoopLength() const;
+    void resetCropRange();
     static void publishPeak(std::atomic<float>& destination, float peak);
 
 public:
@@ -97,6 +104,8 @@ private:
     std::atomic<float> progress{ 0.0f };
 
     std::atomic<float> loopLength{ 0.0f };
+    std::atomic<float> cropStart{ 0.0f };
+    std::atomic<float> cropEnd{ 1.0f };
 
     std::array<std::unique_ptr<juce::AudioBuffer<float>>, maximumBufferSlots>
         ownedLayerBuffers;
