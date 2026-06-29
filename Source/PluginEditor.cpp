@@ -116,14 +116,14 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
             audioProcessor.getParameters(), "audio_thru", audioThruButton);
 
     // ===== Metering and master volume =====
-    inputMeterLabel.setText("INPUT LEVEL", juce::dontSendNotification);
+    inputMeterLabel.setText("INPUT", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
     inputMeterLabel.setColour(juce::Label::textColourId, secondaryText);
     inputMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
                                                         juce::Font::bold)));
     addAndMakeVisible(inputMeterLabel);
 
-    masterMeterLabel.setText("MASTER OUTPUT", juce::dontSendNotification);
+    masterMeterLabel.setText("OUT", juce::dontSendNotification);
     masterMeterLabel.setJustificationType(juce::Justification::centred);
     masterMeterLabel.setColour(juce::Label::textColourId, secondaryText);
     masterMeterLabel.setFont(juce::Font(juce::FontOptions(11.0f,
@@ -404,8 +404,12 @@ void DinLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("L R", 34, 432, 38, 14, juce::Justification::centred);
     g.drawText("L R", 618, 432, 38, 14, juce::Justification::centred);
     g.setColour(thresholdSlider.isEnabled() ? accentBlue : secondaryText);
+    g.setFont(juce::Font(juce::FontOptions(8.0f, juce::Font::bold)));
+    g.drawText("THRESHOLD",
+               23, 445, 66, 12, juce::Justification::centred);
+    g.setFont(juce::Font(juce::FontOptions(9.0f)));
     g.drawText(juce::String(thresholdDb, 1) + " dB",
-               23, 452, 66, 16, juce::Justification::centred);
+               23, 457, 66, 14, juce::Justification::centred);
 
     g.setColour(accentBlue.withAlpha(0.7f));
     g.fillRoundedRectangle(300.0f, 52.0f, 100.0f, 2.0f, 1.0f);
@@ -452,9 +456,7 @@ void DinLooperAudioProcessorEditor::resized()
 
     timeLabel.setBounds(105, 220, 430, 25);
 
-    inputMeterLabel.setText("INPUT", juce::dontSendNotification);
     inputMeterLabel.setBounds(22, 158, 68, 16);
-    masterMeterLabel.setText("OUT", juce::dontSendNotification);
     masterMeterLabel.setBounds(612, 158, 50, 16);
     masterVolumeLabel.setBounds(553, 158, 58, 16);
     masterVolumeSlider.setBounds(553, 177, 58, 291);
