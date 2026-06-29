@@ -713,17 +713,59 @@ void LooperEngine::pressPlay()
 
 void LooperEngine::pressStop()
 {
-    overdubStartRequested = false;
     sustainFinishRequested = false;
     sustainOnNextRecording = false;
 
     if (currentState == State::WaitingForInput)
     {
-        currentState = State::Idle;
+        pressCancel();
         return;
     }
 
     if (currentState == State::RecordingFirstLoop)
+    {
+        if (recordedSamples > 0)
+        {
+            pressRec();
+            currentState = State::Stopped;
+        }
+        else
+        {
+            pressCancel();
+        }
+
+        return;
+    }
+
+    if (currentState == State::Overdubbing)
+    {
+        if (recordingLayerIndex >= 0 && overdubSamplesWritten > 0)
+        {
+            pressRec();
+            currentState = State::Stopped;
+        }
+        else
+        {
+            pressCancel();
+            currentState = State::Stopped;
+        }
+
+        return;
+    }
+
+    overdubStartRequested = false;
+
+    if (currentState == State::Playing)
+        currentState = State::Stopped;
+}
+
+void LooperEngine::pressCancel()
+{
+    sustainFinishRequested = false;
+    sustainOnNextRecording = false;
+
+    if (currentState == State::WaitingForInput
+        || currentState == State::RecordingFirstLoop)
     {
         recordedSamples = 0;
         playbackPosition = 0;
@@ -738,6 +780,13 @@ void LooperEngine::pressStop()
         return;
     }
 
+    if (overdubStartRequested.load(std::memory_order_relaxed))
+    {
+        overdubStartRequested = false;
+        recordingLogicalLayerIndex = -1;
+        return;
+    }
+
     if (currentState == State::Overdubbing)
     {
         if (recordingLayerIndex >= 0)
@@ -749,15 +798,8 @@ void LooperEngine::pressStop()
         recordingLayerIndex = -1;
         recordingLogicalLayerIndex = -1;
         overdubSamplesWritten = 0;
-        currentState = State::Stopped;
+        currentState = State::Playing;
         requestNextLayerBuffer();
-        return;
-    }
-
-    if (currentState == State::Playing ||
-        currentState == State::Overdubbing)
-    {
-        currentState = State::Stopped;
     }
 }
 

@@ -28,6 +28,7 @@ private:
     juce::TextButton recButton{ "REC" };
     juce::TextButton playButton{ "PLAY" };
     juce::TextButton stopButton{ "STOP" };
+    juce::TextButton cancelButton{ "CANCEL" };
     juce::TextButton undoButton{ "UNDO" };
     juce::TextButton redoButton{ "REDO" };
     juce::TextButton resetButton{ "RESET" };

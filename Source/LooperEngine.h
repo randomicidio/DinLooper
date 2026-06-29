@@ -28,6 +28,7 @@ public:
     void pressRec();
     void pressPlay();
     void pressStop();
+    void pressCancel();
     void pressUndo();
     void pressRedo();
     void pressReset();

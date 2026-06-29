@@ -263,6 +263,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     content.addAndMakeVisible(recButton);
     content.addAndMakeVisible(playButton);
     content.addAndMakeVisible(stopButton);
+    content.addAndMakeVisible(cancelButton);
     content.addAndMakeVisible(undoButton);
     content.addAndMakeVisible(redoButton);
     content.addAndMakeVisible(resetButton);
@@ -284,6 +285,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     styleButton(recSustainButton, accentPurple);
     styleButton(playButton, accentGreen);
     styleButton(stopButton, accentAmber);
+    styleButton(cancelButton, accentRed);
     styleButton(rewindButton, accentBlue);
     styleButton(undoButton, accentBlue);
     styleButton(redoButton, accentBlue);
@@ -292,6 +294,7 @@ DinLooperAudioProcessorEditor::DinLooperAudioProcessorEditor(DinLooperAudioProce
     recButton.onClick = [this] { audioProcessor.pressRec(); };
     playButton.onClick = [this] { audioProcessor.pressPlay(); };
     stopButton.onClick = [this] { audioProcessor.pressStop(); };
+    cancelButton.onClick = [this] { audioProcessor.pressCancel(); };
     undoButton.onClick = [this] { audioProcessor.pressUndo(); };
     redoButton.onClick = [this] { audioProcessor.pressRedo(); };
     resetButton.onClick = [this] { audioProcessor.pressReset(); };
@@ -602,11 +605,11 @@ void DinLooperAudioProcessorEditor::resized()
     titleLabel.setBounds(0, 15, designWidth, 35);
     statusLabel.setBounds((designWidth - 366) / 2 + 12, 57, 366, 26);
 
-    const int buttonW = 76;
+    const int buttonW = 68;
     const int buttonH = 35;
-    const int gap = 6;
+    const int gap = 5;
 
-    int totalWidth = buttonW * 8 + gap * 7;
+    int totalWidth = buttonW * 9 + gap * 8;
     int x = (designWidth - totalWidth) / 2;
     int y = 95;
 
@@ -614,6 +617,7 @@ void DinLooperAudioProcessorEditor::resized()
     recSustainButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     playButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     stopButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
+    cancelButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     rewindButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     undoButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
     redoButton.setBounds(x, y, buttonW, buttonH); x += buttonW + gap;
